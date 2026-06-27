@@ -1,0 +1,7 @@
+api_version = "2024-07"
+
+[[extensions]]
+name = "Personalizer Widget"
+handle = "personalizer-widget"
+type = "theme"
+uid = "08a58c4e-e3df-8f9f-a8fc-ce7b6656a25ac790e7e5"

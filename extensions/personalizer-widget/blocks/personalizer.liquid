@@ -1,0 +1,656 @@
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Lobster&family=Pacifico&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  .em-personalizer-wrapper {
+    margin-bottom: 25px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  /* Main Button */
+  .em-btn-main {
+    width: 100%;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #111 0%, #333 100%);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .em-btn-main:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    background: linear-gradient(135deg, #222 0%, #444 100%);
+  }
+  .em-btn-main svg {
+    transition: transform 0.3s;
+  }
+  .em-btn-main.is-open svg {
+    transform: rotate(180deg);
+  }
+
+  /* Glassmorphism Container */
+  .em-form-container {
+    padding: 24px;
+    margin-top: 15px;
+    display: none;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,0.8);
+    animation: emFadeIn 0.4s ease-out forwards;
+  }
+
+  @keyframes emFadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Tabs (Segmented Control) */
+  .em-tabs {
+    display: flex;
+    background: rgba(0,0,0,0.04);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .em-tabs label {
+    flex: 1;
+    text-align: center;
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s;
+    margin: 0;
+  }
+  .em-tabs input[type="radio"] {
+    display: none;
+  }
+  .em-tabs input[type="radio"]:checked + span {
+    color: #000;
+  }
+  .em-tab-checked {
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    color: #000 !important;
+  }
+
+  /* Form Groups & Inputs */
+  .em-form-group {
+    margin-bottom: 20px;
+  }
+  .em-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .em-textarea, .em-select, .em-file-input {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.8);
+    font-family: inherit;
+    font-size: 15px;
+    transition: all 0.2s;
+    color: #111;
+  }
+  .em-textarea:focus, .em-select:focus, .em-file-input:focus {
+    outline: none;
+    border-color: #000;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+    background: #fff;
+  }
+  .em-textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+  
+  .em-char-counter {
+    text-align: right;
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* Color Swatches */
+  .em-swatches {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .em-swatch-item {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% !important;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  .em-swatch-item:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .em-swatch-active {
+    border: 2px solid #000;
+    transform: scale(1.1);
+  }
+
+  /* Range Slider */
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    background: transparent;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #000;
+    cursor: pointer;
+    margin-top: -8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: rgba(0,0,0,0.1);
+    border-radius: 2px;
+  }
+
+  /* Live Preview Overlay */
+  .em-native-overlay {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+    transition: transform 0.2s ease, opacity 0.3s ease, font-size 0.1s linear;
+  }
+  .em-native-overlay span {
+    line-height: 1.2;
+    text-align: center;
+    word-break: break-word;
+    width: 100%;
+    white-space: pre-wrap; 
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.4);
+  }
+
+  /* Hide Buy Now button when personalization is active because it bypasses the cart */
+  .em-personalizer-wrapper.is-active ~ .shopify-payment-button,
+  .em-personalizer-wrapper.is-active ~ * .shopify-payment-button,
+  form:has(.em-personalizer-wrapper.is-active) .shopify-payment-button {
+    display: none !important;
+  }
+</style>
+
+<div class="em-personalizer-wrapper" id="em-app-root">
+  <button type="button" class="em-btn-main" id="em-btn-expand">
+    <span>Customize & Personalize</span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+  </button>
+
+  <div class="em-form-container" id="em-form-box">
+    
+    <div class="em-tabs" id="em-tabs-container">
+      <label class="em-tab-checked" id="em-tab-text-label">
+        <input type="radio" name="em-type" value="text" checked> 
+        <span>Add Text</span>
+      </label>
+      <label id="em-tab-image-label">
+        <input type="radio" name="em-type" value="image"> 
+        <span>Upload Image</span>
+      </label>
+    </div>
+    
+    <div id="em-text-section">
+      <div class="em-form-group">
+        <label>Your Text Here *</label>
+        <textarea class="em-textarea" id="em-text-area" maxlength="500" placeholder="Your Text Here"></textarea>
+        <div class="em-char-counter"><span id="em-char-count">0</span>/500</div>
+      </div>
+    </div>
+
+    <div id="em-image-section" style="display: none;">
+      <div class="em-form-group">
+        <label>Upload Image *</label>
+        <!-- The name attribute connects it directly to the product form properties -->
+        <input type="file" id="em-file-input" class="em-file-input" accept="image/*" form="product-form-{{ section.id }}">
+      </div>
+    </div>
+    
+    <div class="em-form-group">
+      <label id="em-color-label">Select a color</label>
+      <div class="em-swatches" id="em-color-swatches"></div>
+      <input type="hidden" id="em-color" value="">
+      <input type="hidden" id="em-color-name" value="">
+    </div>
+
+    <div class="em-form-group" id="em-font-section">
+      <label>Select a Font</label>
+      <select class="em-select" id="em-font-select">
+        <!-- populated by JS -->
+      </select>
+    </div>
+
+    <div class="em-form-group" id="em-size-section">
+      <label>Text Size</label>
+      <input type="range" id="em-font-size" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+    </div>
+
+    <div class="em-form-group" id="em-frame-section">
+      <label>Frame Size</label>
+      <select class="em-select" id="em-frame-size">
+        <option value="" disabled selected>Select option</option>
+      </select>
+    </div>
+
+  </div>
+
+  <!-- Hidden Fields for Cart -->
+  <input type="hidden" name="properties[Personalization_Details]" id="em-cart-properties" form="product-form-{{ section.id }}">
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+  const shopDomain = Shopify.shop;
+  const productId = '{{ product.id }}';
+  let addonVariants = [];
+  let imageVariantId = null;
+  let activeColors = [{ name: "Black", hex: "#000000" }];
+  let activeFonts = ["Arial", "Great Vibes", "Pacifico", "Dancing Script", "Lobster"];
+
+  // 1. Read Settings Securely from Shop Metafields!
+  {% assign app_settings = shop.metafields.embroidery_app.settings.value %}
+  {% if app_settings != blank %}
+    try {
+      const settingsObj = {{ app_settings | json }};
+      if (settingsObj.addonVariants && settingsObj.addonVariants.length > 0) {
+        addonVariants = settingsObj.addonVariants;
+      }
+      if (settingsObj.colors && settingsObj.colors.length > 0) {
+        activeColors = settingsObj.colors;
+      }
+      if (settingsObj.fonts && settingsObj.fonts.length > 0) {
+        activeFonts = settingsObj.fonts;
+      }
+    } catch(e) { console.log(e); }
+  {% endif %}
+
+  // UI Elements
+  const btnExpand = document.getElementById('em-btn-expand');
+  const formBox = document.getElementById('em-form-box');
+  const textArea = document.getElementById('em-text-area');
+  const charCount = document.getElementById('em-char-count');
+  const colorSwatches = document.getElementById('em-color-swatches');
+  const colorLabel = document.getElementById('em-color-label');
+  const colorInput = document.getElementById('em-color');
+  const colorNameInput = document.getElementById('em-color-name');
+  const fontSelect = document.getElementById('em-font-select');
+  const fontSizeSlider = document.getElementById('em-font-size');
+  const frameSizeSelect = document.getElementById('em-frame-size');
+  const cartProps = document.getElementById('em-cart-properties');
+  const fileInput = document.getElementById('em-file-input');
+  
+  // Tab logic
+  let mode = 'text';
+  const textLabel = document.getElementById('em-tab-text-label');
+  const imageLabel = document.getElementById('em-tab-image-label');
+  
+  document.querySelectorAll('input[name="em-type"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      mode = e.target.value;
+      if (mode === 'text') {
+        textLabel.classList.add('em-tab-checked');
+        imageLabel.classList.remove('em-tab-checked');
+        document.getElementById('em-text-section').style.display = 'block';
+        document.getElementById('em-image-section').style.display = 'none';
+        document.getElementById('em-font-section').style.display = 'block';
+        document.getElementById('em-size-section').style.display = 'block';
+        document.getElementById('em-frame-section').style.display = 'block';
+        fileInput.removeAttribute('name');
+        updatePreview();
+      } else {
+        imageLabel.classList.add('em-tab-checked');
+        textLabel.classList.remove('em-tab-checked');
+        document.getElementById('em-text-section').style.display = 'none';
+        document.getElementById('em-image-section').style.display = 'block';
+        document.getElementById('em-font-section').style.display = 'none';
+        document.getElementById('em-size-section').style.display = 'none';
+        document.getElementById('em-frame-section').style.display = 'none';
+        fileInput.setAttribute('name', 'properties[Uploaded_Image]');
+        if(previewOverlay) previewOverlay.innerHTML = '';
+        updatePreview();
+      }
+    });
+  });
+
+  // Accordion Logic
+  btnExpand.onclick = () => {
+    if (formBox.style.display === 'block') {
+      formBox.style.display = 'none';
+      btnExpand.classList.remove('is-open');
+      document.getElementById('em-app-root').classList.remove('is-active');
+    } else {
+      formBox.style.display = 'block';
+      btnExpand.classList.add('is-open');
+      document.getElementById('em-app-root').classList.add('is-active');
+      setupPreviewOverlay(productConfig);
+      updatePreview();
+    }
+  };
+
+  // Textarea Logic
+  textArea.addEventListener('input', () => {
+    charCount.innerText = textArea.value.length;
+    updatePreview();
+  });
+
+  // 2. Read Product Coordinates from Metafields (Instant!)
+  let productConfig = null;
+  {% assign prod_config = product.metafields.embroidery_app.config.value %}
+  {% if prod_config != blank %}
+    try {
+      productConfig = {{ prod_config | json }};
+    } catch(e) {}
+  {% endif %}
+
+  // Fallback / Primary fetch for Variants directly from Shopify Storefront JS
+  // This ensures variants load if the Liquid drop failed (e.g. not fully published but accessible)
+  if (addonVariants.length === 0) {
+    try {
+      const prodRes = await fetch(`/products/embroidery-add-on-hidden.js`);
+      if (prodRes.ok) {
+        const addOnData = await prodRes.json();
+        if (addOnData && addOnData.variants) {
+          addonVariants = addOnData.variants;
+        }
+      }
+    } catch(err) {
+      console.log("Could not fetch addon product", err);
+    }
+  }
+
+  // Final fallback to prevent empty widget if nothing works
+  if (addonVariants.length === 0) {
+    addonVariants = [
+      { id: "fallback-text-12", title: "12cm", price: 400 },
+      { id: "fallback-text-15", title: "15cm", price: 600 },
+      { id: "fallback-image", title: "Image Upload", price: 300 }
+    ];
+  }
+
+  // Populate Colors
+  activeColors.forEach((c, idx) => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.innerHTML = '&nbsp;';
+    swatch.className = 'em-swatch-item' + (idx === 0 ? ' em-swatch-active' : '');
+    swatch.style.backgroundColor = c.hex || c;
+    swatch.style.padding = '0';
+    swatch.style.margin = '0';
+
+    swatch.onclick = (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.em-swatch-item').forEach(el => el.classList.remove('em-swatch-active'));
+      swatch.classList.add('em-swatch-active');
+      colorInput.value = c.hex || c;
+      colorNameInput.value = c.name || c;
+      colorLabel.innerText = "Select a color: " + (c.name || c);
+      updatePreview();
+    };
+    colorSwatches.appendChild(swatch);
+  });
+  
+  if (activeColors.length > 0) {
+    const firstCol = activeColors[0];
+    colorInput.value = firstCol.hex || firstCol;
+    colorNameInput.value = firstCol.name || firstCol;
+    colorLabel.innerText = "Select a color: " + (firstCol.name || firstCol);
+  }
+
+  // Populate Fonts
+  activeFonts.forEach(font => {
+    const opt = document.createElement('option');
+    opt.value = font;
+    opt.innerText = font;
+    opt.style.fontFamily = font;
+    fontSelect.appendChild(opt);
+  });
+  
+  fontSelect.addEventListener('change', updatePreview);
+  fontSizeSlider.addEventListener('input', updatePreview);
+
+  // Populate Frame Sizes
+  addonVariants.forEach(variant => {
+    if (variant.title.toLowerCase().includes("image upload")) {
+      imageVariantId = variant.id;
+    } else {
+      const opt = document.createElement('option');
+      opt.value = variant.id;
+      const formattedPrice = parseFloat(variant.price).toFixed(2);
+      opt.innerText = `${variant.title} +£${formattedPrice}`;
+      frameSizeSelect.appendChild(opt);
+    }
+  });
+
+  let previewOverlay = null;
+  function setupPreviewOverlay(productConfig) {
+    if (!productConfig) {
+      console.log("Embroidery Personalizer: No zone config found in Metafields for this product.");
+      return false;
+    }
+    
+    if (previewOverlay) return true; // Already setup
+
+    // Find the main product image. Common classes: .product__media img, .product-single__media img
+    const mainImages = document.querySelectorAll('.product__media img, .product-single__media img, img.product-featured-media, .product-media img, [id^="ProductPhoto"]');
+    let targetImage = null;
+    for(let img of mainImages) {
+      // Ignore thumbnails
+      if (!img.closest('[class*="thumbnail"]') && !img.closest('[id*="Thumbnail"]')) {
+        targetImage = img; 
+        break; 
+      }
+    }
+    
+    if(targetImage) {
+      console.log("Embroidery Personalizer: Main image found, attaching preview overlay.");
+      
+      const parent = targetImage.offsetParent || targetImage.parentElement;
+      if (window.getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+      }
+      
+      previewOverlay = document.createElement('div');
+      previewOverlay.className = 'em-native-overlay';
+      
+      const updatePosition = () => {
+        // Handle users who might have old Pixel data saved instead of Percentages
+        const safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
+        const safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
+        const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
+        const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
+        const angle = productConfig.zoneAngle || 0;
+
+        const imgWidth = targetImage.clientWidth;
+        const imgHeight = targetImage.clientHeight;
+        const imgTop = targetImage.offsetTop;
+        const imgLeft = targetImage.offsetLeft;
+
+        const exactLeft = imgLeft + (imgWidth * (safeX / 100));
+        const exactTop = imgTop + (imgHeight * (safeY / 100));
+        const exactWidth = imgWidth * (safeW / 100);
+        const exactHeight = imgHeight * (safeH / 100);
+
+        previewOverlay.style.left = exactLeft + 'px';
+        previewOverlay.style.top = exactTop + 'px';
+        previewOverlay.style.width = exactWidth + 'px';
+        previewOverlay.style.height = exactHeight + 'px';
+        
+        // Apply Transform (Anchor center top-left trick or simple rotate)
+        // Since left/top are the top-left corner, standard rotate() will rotate from center of box
+        previewOverlay.style.transform = `rotate(${angle}deg)`;
+        previewOverlay.style.transformOrigin = 'center center';
+        
+        // Scale Font Size Perfectly with Box Height & User Slider
+        const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
+        const calcSize = exactHeight * 0.4 * sizeMultiplier;
+        previewOverlay.style.fontSize = calcSize + 'px';
+      };
+
+      updatePosition();
+
+      // Ensure it resizes correctly if the window/image changes
+      const resizeObserver = new ResizeObserver(() => updatePosition());
+      resizeObserver.observe(targetImage);
+
+      previewOverlay.innerHTML = '<span id="em-p-text" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center;"></span>';
+      
+      // Basic styling for the box
+      previewOverlay.style.border = '2px dashed rgba(44, 110, 203, 0.6)';
+      previewOverlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
+      previewOverlay.style.boxSizing = 'border-box';
+
+      parent.appendChild(previewOverlay);
+      return true;
+    }
+    
+    console.log("Embroidery Personalizer: Could not find main product image on the page.");
+    return false;
+  }
+  
+  // Try to setup immediately, but it will also run when they click the "Make Personalization" button
+  if (productConfig) {
+    setupPreviewOverlay(productConfig);
+    // If it fails because images aren't loaded yet, try again on window load
+    window.addEventListener('load', () => setupPreviewOverlay(productConfig));
+  }
+
+  function updatePreview() {
+    if (mode === 'text' && previewOverlay) {
+      let pText = document.getElementById('em-p-text');
+      if (!pText) {
+        previewOverlay.innerHTML = '<span id="em-p-text" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; font-size: 2em; line-height: 1;"></span>';
+        pText = document.getElementById('em-p-text');
+      }
+      
+      if (pText) {
+        const isPlaceholder = textArea.value.trim() === '';
+        pText.innerText = isPlaceholder ? "Text Here" : textArea.value;
+        pText.style.opacity = isPlaceholder ? '0.4' : '1';
+        
+        previewOverlay.style.color = colorInput.value;
+        previewOverlay.style.fontFamily = fontSelect.value;
+        previewOverlay.style.border = isPlaceholder ? '2px dashed rgba(44, 110, 203, 0.6)' : 'none';
+        previewOverlay.style.backgroundColor = isPlaceholder ? 'rgba(44, 110, 203, 0.1)' : 'transparent';
+        
+        // Real-time font size update!
+        const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
+        const calcSize = previewOverlay.clientHeight * 0.4 * sizeMultiplier;
+        previewOverlay.style.fontSize = calcSize + 'px';
+      }
+      
+      let sizeText = frameSizeSelect.options[frameSizeSelect.selectedIndex]?.text || "None";
+      cartProps.value = `Text: ${textArea.value} | Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Size: ${sizeText}`;
+    } else {
+      cartProps.value = `Type: Image Upload | Color: ${colorNameInput.value}`;
+    }
+  }
+
+  frameSizeSelect.addEventListener('change', updatePreview);
+
+  // Dynamic Pricing & Cart Interception
+  const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
+  
+  addToCartForms.forEach(form => {
+    let isSubmitting = false;
+
+    form.addEventListener('submit', async function(e) {
+      if (formBox.style.display !== 'block') return; // Not using personalization
+      if (isSubmitting) return; // Allow normal submit
+
+      e.preventDefault(); 
+      isSubmitting = true;
+
+      let variantId = null;
+      if (mode === 'text' && frameSizeSelect.value) {
+        variantId = frameSizeSelect.value;
+      } else if (mode === 'image' && imageVariantId) {
+        variantId = imageVariantId;
+      }
+
+      if (variantId) {
+        try {
+           // 1. Add the add-on product first
+           await fetch(window.Shopify.routes.root + 'cart/add.js', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               items: [{
+                 id: variantId,
+                 quantity: document.querySelector('[name="quantity"]')?.value || 1,
+                 properties: { "For_Product": "{{ product.title }}" }
+               }]
+             })
+           });
+           
+           // 2. Submit the main form normally so file uploads work
+           form.submit();
+        } catch(err) {
+          console.error("Failed to add addon", err);
+          isSubmitting = false;
+        }
+      } else {
+        // If no add-on needed or missing, just submit
+        form.submit();
+      }
+    });
+  });
+
+});
+</script>
+
+{% schema %}
+{
+  "name": "Embroidery Personalizer",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

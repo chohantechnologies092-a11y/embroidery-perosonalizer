@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model PersonalizerConfig {
+  id            String   @id @default(uuid())
+  shop          String
+  productId     String
+  productHandle String
+  zoneX         Float    @default(0)
+  zoneY         Float    @default(0)
+  zoneWidth     Float    @default(100)
+  zoneHeight    Float    @default(50)
+  zoneAngle     Float    @default(0)
+  allowedFonts  String?
+  allowedColors String?
+  maxLength     Int      @default(10)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([shop, productId])
+}
+
+model GlobalSettings {
+  id             String   @id @default("default")
+  shop           String   @unique
+  price2Lines    Float    @default(5.0)
+  price3Lines    Float    @default(6.0)
+  priceImage     Float    @default(3.0)
+  defaultFonts   String   @default("[\"Arial\", \"Times New Roman\", \"Courier New\"]")
+  defaultColors  String   @default("[\"#000000\", \"#FFFFFF\", \"#FF0000\", \"#0000FF\", \"#FFD700\"]")
+  frameSizes     String   @default("[]")
+  addonProductId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
