@@ -51,7 +51,7 @@ model PersonalizerConfig {
 }
 
 model GlobalSettings {
-  id             String   @id @default("default")
+  id             String   @id @default(uuid())
   shop           String   @unique
   price2Lines    Float    @default(5.0)
   price3Lines    Float    @default(6.0)
