@@ -26,7 +26,7 @@
   "dependencies": {
     "@netlify/functions": "^5.3.0",
     "@netlify/vite-plugin-react-router": "^4.0.0",
-    "@prisma/client": "^6.16.3",
+    "@prisma/client": "^7.8.0",
     "@react-router/dev": "^7.12.0",
     "@react-router/fs-routes": "^7.12.0",
     "@react-router/node": "^7.12.0",
@@ -37,7 +37,7 @@
     "@shopify/shopify-app-react-router": "^1.1.0",
     "@shopify/shopify-app-session-storage-prisma": "^9.0.0",
     "isbot": "^5.1.31",
-    "prisma": "^6.16.3",
+    "prisma": "^7.8.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router": "^7.12.0",
