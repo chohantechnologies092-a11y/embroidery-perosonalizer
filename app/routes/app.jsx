@@ -1,15 +1,13 @@
-import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
-
-import { authenticate } from "../shopify.server";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
+import { authenticate } from "../shopify.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = async ({ request }) => {
   await authenticate.admin(request);
 
   // eslint-disable-next-line no-undef
@@ -17,13 +15,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey } = useLoaderData();
 
   return (
     <AppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={{}}>
         <ui-nav-menu>
-          <a href="/app" rel="home">Dashboard</a>
+          <a href="/app" rel="home">
+            Dashboard
+          </a>
           <a href="/app/products">Products</a>
           <a href="/app/orders">Orders</a>
           <a href="/app/settings">Settings</a>
@@ -39,6 +39,6 @@ export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
+export const headers = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
