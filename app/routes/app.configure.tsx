@@ -96,6 +96,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const pJson = await pRes.json();
       const productHandle = pJson.data?.product?.handle || "unknown";
 
+      const existing = await prisma.personalizerConfig.findUnique({
+        where: { shop_productId: { shop: session.shop, productId: id } }
+      });
+      const isActive = existing?.isActive ?? true;
+
       await prisma.personalizerConfig.upsert({
         where: { shop_productId: { shop: session.shop, productId: id } },
         update: { zoneX, zoneY, zoneWidth, zoneHeight, zoneAngle, productHandle },
@@ -103,7 +108,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           shop: session.shop,
           productId: id,
           productHandle,
-          zoneX, zoneY, zoneWidth, zoneHeight, zoneAngle
+          zoneX, zoneY, zoneWidth, zoneHeight, zoneAngle,
+          isActive
         }
       });
 
@@ -118,7 +124,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             namespace: "embroidery_app",
             key: "config",
             type: "json",
-            value: JSON.stringify({ zoneX, zoneY, zoneWidth, zoneHeight, zoneAngle })
+            value: JSON.stringify({ zoneX, zoneY, zoneWidth, zoneHeight, zoneAngle, isActive })
           }]
         }
       });
