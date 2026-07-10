@@ -101,8 +101,14 @@ jobs:
       - name: Stage changes to files
         run: |
           git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit"
+            echo "HAS_CHANGES=false" >> $GITHUB_ENV
+            exit 0
+          fi
+          echo "HAS_CHANGES=true" >> $GITHUB_ENV
           git checkout -b $TEMP_BRANCH
-          git diff-index --quiet HEAD || git commit -m "Convert template to Javascript"
+          git commit -m "Convert template to Javascript"
           git checkout $TARGET_BRANCH || git checkout -b $TARGET_BRANCH
           git pull origin $TARGET_BRANCH || echo "No remote $TARGET_BRANCH branch yet"
           git checkout -
@@ -110,6 +116,7 @@ jobs:
           git push -f origin $TEMP_BRANCH:$WORK_BRANCH
 
       - name: Create Javascript PR
+        if: env.HAS_CHANGES == 'true'
         run: |
           MERGED_AT=$(gh pr view $WORK_BRANCH --json mergedAt -q ".mergedAt" 2>/dev/null || echo "NO_PR")
           if [ -z "$MERGED_AT" ]; then
