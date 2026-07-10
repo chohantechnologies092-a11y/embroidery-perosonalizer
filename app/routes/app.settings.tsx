@@ -205,7 +205,7 @@ export default function Settings() {
   
   const [fonts, setFonts] = useState(() => {
     try { return JSON.parse(settings.defaultFonts).join(", "); } 
-    catch { return "Arial, Times New Roman, Great Vibes, Pacifico, Dancing Script, Lobster"; }
+    catch { return "Arial, Great Vibes, Pacifico, Dancing Script, Lobster, Alex Brush, Parisienne, Sacramento, Cookie, Charm"; }
   });
   
   const [colors, setColors] = useState(() => {
@@ -453,7 +453,7 @@ export default function Settings() {
                   autoComplete="off"
                 />
                 <Text as="p" tone="subdued" variant="bodySm">
-                  Fancy fonts like <b>Great Vibes, Pacifico, Dancing Script, Lobster, Cinzel, Playfair Display</b> are pre-loaded in the storefront widget!
+                  Fancy fonts like <b>Great Vibes, Pacifico, Dancing Script, Lobster, Cinzel, Playfair Display, Alex Brush, Parisienne, Sacramento, Cookie, Charm</b> are pre-loaded in the storefront widget!
                 </Text>
               </BlockStack>
             </Card>

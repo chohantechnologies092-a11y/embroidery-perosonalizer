@@ -20,17 +20,31 @@ jobs:
         if: ${{ matrix.manager == 'pnpm' }}
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 9
 
       - name: Install dependencies using ${{ matrix.manager }}
         run: ${{ matrix.manager }} install
 
       - name: Validate Prisma
-        run: npx prisma generate && npx prisma validate
+        run: |
+          if [ "${{ matrix.manager }}" == "pnpm" ]; then
+            pnpm exec prisma generate && pnpm exec prisma validate
+          elif [ "${{ matrix.manager }}" == "yarn" ]; then
+            yarn prisma generate && yarn prisma validate
+          else
+            npx prisma generate && npx prisma validate
+          fi
 
       - name: Run TypeScript type checking
         if: ${{ !startsWith(github.head_ref || github.ref_name, 'javascript') }}
-        run: npx tsc --noEmit
+        run: |
+          if [ "${{ matrix.manager }}" == "pnpm" ]; then
+            pnpm exec tsc --noEmit
+          elif [ "${{ matrix.manager }}" == "yarn" ]; then
+            yarn tsc --noEmit
+          else
+            npx tsc --noEmit
+          fi
 
       - name: Run ESLint
         run: npm run lint

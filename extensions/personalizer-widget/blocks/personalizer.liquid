@@ -1,4 +1,4 @@
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Lobster&family=Pacifico&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Lobster&family=Pacifico&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Alex+Brush&family=Parisienne&family=Sacramento&family=Cookie&family=Charm:wght@400;700&display=swap" rel="stylesheet">
 <style>
   .em-personalizer-wrapper {
     margin-bottom: 25px;
@@ -288,13 +288,13 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', async function() {
+(async function initEmbroideryWidget() {
   const shopDomain = Shopify.shop;
   const productId = '{{ product.id }}';
   let addonVariants = [];
   let imageVariantId = null;
   let activeColors = [{ name: "Black", hex: "#000000" }];
-  let activeFonts = ["Arial", "Great Vibes", "Pacifico", "Dancing Script", "Lobster"];
+  let activeFonts = ["Arial", "Great Vibes", "Pacifico", "Dancing Script", "Lobster", "Alex Brush", "Parisienne", "Sacramento", "Cookie", "Charm"];
 
   // 1. Read Settings Securely from Shop Metafields!
   {% assign app_settings = shop.metafields.embroidery_app.settings.value %}
@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const opt = document.createElement('option');
     opt.value = font;
     opt.innerText = font;
-    opt.style.fontFamily = font;
+    opt.style.setProperty('font-family', `"${font}", sans-serif`, 'important');
     fontSelect.appendChild(opt);
   });
   
@@ -479,76 +479,103 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     if (previewOverlay) return true; // Already setup
 
-    // Find the main product image. Common classes: .product__media img, .product-single__media img
-    const mainImages = document.querySelectorAll('.product__media img, .product-single__media img, img.product-featured-media, .product-media img, [id^="ProductPhoto"]');
-    let targetImage = null;
-    for(let img of mainImages) {
-      // Ignore thumbnails
-      if (!img.closest('[class*="thumbnail"]') && !img.closest('[id*="Thumbnail"]')) {
-        targetImage = img; 
-        break; 
+    // Extract all product media filenames to find the exact product image on the page
+    const productFilenames = [
+      {% for media in product.media %}
+        {{ media.src | split: '/' | last | split: '.' | first | json }}{% unless forloop.last %},{% endunless %}
+      {% endfor %}
+    ];
+
+    let targetImages = [];
+    const allImages = document.querySelectorAll('img');
+    for (let img of allImages) {
+      if (img.offsetWidth === 0 || img.offsetHeight === 0) continue;
+      if (img.clientWidth < 150) continue;
+
+      const src = img.src || img.currentSrc || img.getAttribute('srcset') || img.getAttribute('data-src') || "";
+      if (!src) continue;
+
+      const isProductImage = productFilenames.some(filename => src.includes(filename));
+      if (isProductImage) {
+        targetImages.push(img);
       }
     }
+
+    if (targetImages.length === 0) {
+       let largestArea = 0;
+       let bestImg = null;
+       for (let img of allImages) {
+         if (img.offsetWidth === 0 || img.offsetHeight === 0) continue;
+         if (img.closest('[class*="thumb"]') || img.closest('[id*="Thumb"]')) continue;
+         
+         const area = img.clientWidth * img.clientHeight;
+         if (area > largestArea && area > 40000) { 
+           largestArea = area;
+           bestImg = img;
+         }
+       }
+       if (bestImg) targetImages.push(bestImg);
+    }
     
-    if(targetImage) {
-      console.log("Embroidery Personalizer: Main image found, attaching preview overlay.");
+    if(targetImages.length > 0) {
+      console.log("Embroidery Personalizer: Found " + targetImages.length + " matching images.");
       
-      const parent = targetImage.offsetParent || targetImage.parentElement;
-      if (window.getComputedStyle(parent).position === 'static') {
-        parent.style.position = 'relative';
-      }
-      
-      previewOverlay = document.createElement('div');
-      previewOverlay.className = 'em-native-overlay';
-      
-      const updatePosition = () => {
-        // Handle users who might have old Pixel data saved instead of Percentages
-        const safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
-        const safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
-        const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
-        const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
-        const angle = productConfig.zoneAngle || 0;
-
-        const imgWidth = targetImage.clientWidth;
-        const imgHeight = targetImage.clientHeight;
-        const imgTop = targetImage.offsetTop;
-        const imgLeft = targetImage.offsetLeft;
-
-        const exactLeft = imgLeft + (imgWidth * (safeX / 100));
-        const exactTop = imgTop + (imgHeight * (safeY / 100));
-        const exactWidth = imgWidth * (safeW / 100);
-        const exactHeight = imgHeight * (safeH / 100);
-
-        previewOverlay.style.left = exactLeft + 'px';
-        previewOverlay.style.top = exactTop + 'px';
-        previewOverlay.style.width = exactWidth + 'px';
-        previewOverlay.style.height = exactHeight + 'px';
+      targetImages.forEach((targetImage, idx) => {
+        const parent = targetImage.offsetParent || targetImage.parentElement;
+        if (window.getComputedStyle(parent).position === 'static') {
+          parent.style.position = 'relative';
+        }
         
-        // Apply Transform (Anchor center top-left trick or simple rotate)
-        // Since left/top are the top-left corner, standard rotate() will rotate from center of box
-        previewOverlay.style.transform = `rotate(${angle}deg)`;
-        previewOverlay.style.transformOrigin = 'center center';
+        let overlay = document.createElement('div');
+        overlay.className = 'em-native-overlay';
+        overlay.id = 'em-overlay-' + idx;
         
-        // Scale Font Size Perfectly with Box Height & User Slider
-        const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
-        const calcSize = exactHeight * 0.4 * sizeMultiplier;
-        previewOverlay.style.fontSize = calcSize + 'px';
-      };
+        const updatePosition = () => {
+          const safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
+          const safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
+          const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
+          const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
+          const angle = productConfig.zoneAngle || 0;
 
-      updatePosition();
+          const imgWidth = targetImage.clientWidth;
+          const imgHeight = targetImage.clientHeight;
+          const imgTop = targetImage.offsetTop;
+          const imgLeft = targetImage.offsetLeft;
 
-      // Ensure it resizes correctly if the window/image changes
-      const resizeObserver = new ResizeObserver(() => updatePosition());
-      resizeObserver.observe(targetImage);
+          const exactLeft = imgLeft + (imgWidth * (safeX / 100));
+          const exactTop = imgTop + (imgHeight * (safeY / 100));
+          const exactWidth = imgWidth * (safeW / 100);
+          const exactHeight = imgHeight * (safeH / 100);
 
-      previewOverlay.innerHTML = '<span id="em-p-text" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center;"></span>';
+          overlay.style.left = exactLeft + 'px';
+          overlay.style.top = exactTop + 'px';
+          overlay.style.width = exactWidth + 'px';
+          overlay.style.height = exactHeight + 'px';
+          
+          overlay.style.transform = `rotate(${angle}deg)`;
+          overlay.style.transformOrigin = 'center center';
+          
+          const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
+          const calcSize = exactHeight * 0.4 * sizeMultiplier;
+          overlay.style.fontSize = calcSize + 'px';
+        };
+
+        updatePosition();
+        const resizeObserver = new ResizeObserver(() => updatePosition());
+        resizeObserver.observe(targetImage);
+
+        overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
+        overlay.style.border = '2px dashed rgba(44, 110, 203, 0.6)';
+        overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
+        overlay.style.boxSizing = 'border-box';
+        
+        // Ensure z-index is high enough to appear above EComposer wrappers but below lightboxes
+        overlay.style.zIndex = '99';
+
+        parent.appendChild(overlay);
+      });
       
-      // Basic styling for the box
-      previewOverlay.style.border = '2px dashed rgba(44, 110, 203, 0.6)';
-      previewOverlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
-      previewOverlay.style.boxSizing = 'border-box';
-
-      parent.appendChild(previewOverlay);
+      previewOverlay = true; // Mark as initialized
       return true;
     }
     
@@ -565,27 +592,29 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   function updatePreview() {
     if (mode === 'text' && previewOverlay) {
-      let pText = document.getElementById('em-p-text');
-      if (!pText) {
-        previewOverlay.innerHTML = '<span id="em-p-text" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; font-size: 2em; line-height: 1;"></span>';
-        pText = document.getElementById('em-p-text');
-      }
-      
-      if (pText) {
-        const isPlaceholder = textArea.value.trim() === '';
-        pText.innerText = isPlaceholder ? "Text Here" : textArea.value;
-        pText.style.opacity = isPlaceholder ? '0.4' : '1';
+      const overlays = document.querySelectorAll('.em-native-overlay');
+      overlays.forEach(overlay => {
+        let pText = overlay.querySelector('.em-p-text-instance');
+        if (!pText) {
+          overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; font-size: 2em; line-height: 1; pointer-events: none;"></span>';
+          pText = overlay.querySelector('.em-p-text-instance');
+        }
         
-        previewOverlay.style.color = colorInput.value;
-        previewOverlay.style.fontFamily = fontSelect.value;
-        previewOverlay.style.border = isPlaceholder ? '2px dashed rgba(44, 110, 203, 0.6)' : 'none';
-        previewOverlay.style.backgroundColor = isPlaceholder ? 'rgba(44, 110, 203, 0.1)' : 'transparent';
-        
-        // Real-time font size update!
-        const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
-        const calcSize = previewOverlay.clientHeight * 0.4 * sizeMultiplier;
-        previewOverlay.style.fontSize = calcSize + 'px';
-      }
+        if (pText) {
+          const isPlaceholder = textArea.value.trim() === '';
+          pText.innerText = isPlaceholder ? "Your Text Here" : textArea.value;
+          pText.style.opacity = isPlaceholder ? '0.5' : '1';
+          
+          overlay.style.color = colorInput.value;
+          overlay.style.setProperty('font-family', `"${fontSelect.value}", sans-serif`, 'important');
+          overlay.style.border = isPlaceholder ? '2px dashed rgba(44, 110, 203, 0.6)' : 'none';
+          overlay.style.backgroundColor = isPlaceholder ? 'rgba(44, 110, 203, 0.1)' : 'transparent';
+          
+          const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
+          const calcSize = overlay.clientHeight * 0.4 * sizeMultiplier;
+          overlay.style.fontSize = calcSize + 'px';
+        }
+      });
       
       let sizeText = frameSizeSelect.options[frameSizeSelect.selectedIndex]?.text || "None";
       cartProps.value = `Text: ${textArea.value} | Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Size: ${sizeText}`;
@@ -644,7 +673,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
   });
 
-});
+})();
 </script>
 
 {% schema %}

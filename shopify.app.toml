@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "75ca1cfcfe400b08b0e4d0b5c4fa79d8"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://embroidery-personalizer.netlify.app"
 embedded = true
 name = "EmEmbroidery Personalizer"
 
@@ -45,8 +45,11 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [
+  "https://embroidery-personalizer.netlify.app/auth/callback",
+  "https://embroidery-personalizer.netlify.app/auth/shopify/callback",
+  "https://embroidery-personalizer.netlify.app/api/auth/callback"
+]
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
