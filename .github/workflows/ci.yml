@@ -26,6 +26,9 @@ jobs:
         run: ${{ matrix.manager }} install
 
       - name: Validate Prisma
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
         run: |
           if [ "${{ matrix.manager }}" = "pnpm" ]; then
             pnpm exec prisma generate && pnpm exec prisma validate
