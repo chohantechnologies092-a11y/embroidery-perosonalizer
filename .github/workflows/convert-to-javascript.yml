@@ -21,7 +21,7 @@ jobs:
       TEMP_BRANCH: temp_${{ inputs.target-branch }}_updates
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.source-branch }}
 
@@ -31,7 +31,7 @@ jobs:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
 
