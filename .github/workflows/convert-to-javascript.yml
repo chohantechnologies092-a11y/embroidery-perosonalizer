@@ -116,18 +116,4 @@ jobs:
           git pull origin $TARGET_BRANCH || echo "No remote $TARGET_BRANCH branch yet"
           git checkout -
           git rebase -m -X theirs $TARGET_BRANCH
-          git push -f origin $TEMP_BRANCH:$WORK_BRANCH
-
-      - name: Create Javascript PR
-        if: env.HAS_CHANGES == 'true'
-        run: |
-          MERGED_AT=$(gh pr view $WORK_BRANCH --json mergedAt -q ".mergedAt" 2>/dev/null || echo "NO_PR")
-          if [ -z "$MERGED_AT" ]; then
-            echo "Open unmerged PR already exists, skipping"
-          else
-            gh pr create -B $TARGET_BRANCH -H $WORK_BRANCH \
-              --title "[$TARGET_BRANCH] Convert template to Javascript" \
-              --body "This is an automated PR that converts the latest changes from Typescript to Javascript on the \`$TARGET_BRANCH\` branch."
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
+          git push -f origin $TEMP_BRANCH:$TARGET_BRANCH
