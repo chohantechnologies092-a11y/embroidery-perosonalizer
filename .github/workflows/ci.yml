@@ -27,9 +27,9 @@ jobs:
 
       - name: Validate Prisma
         run: |
-          if [ "${{ matrix.manager }}" == "pnpm" ]; then
+          if [ "${{ matrix.manager }}" = "pnpm" ]; then
             pnpm exec prisma generate && pnpm exec prisma validate
-          elif [ "${{ matrix.manager }}" == "yarn" ]; then
+          elif [ "${{ matrix.manager }}" = "yarn" ]; then
             yarn prisma generate && yarn prisma validate
           else
             npx prisma generate && npx prisma validate
@@ -38,9 +38,9 @@ jobs:
       - name: Run TypeScript type checking
         if: ${{ !startsWith(github.head_ref || github.ref_name, 'javascript') }}
         run: |
-          if [ "${{ matrix.manager }}" == "pnpm" ]; then
+          if [ "${{ matrix.manager }}" = "pnpm" ]; then
             pnpm exec tsc --noEmit
-          elif [ "${{ matrix.manager }}" == "yarn" ]; then
+          elif [ "${{ matrix.manager }}" = "yarn" ]; then
             yarn tsc --noEmit
           else
             npx tsc --noEmit

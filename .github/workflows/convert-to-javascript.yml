@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install
-          pnpm add -D @shopify/eslint-plugin
+          pnpm add -Dw @shopify/eslint-plugin
 
       - name: Create temporary tsconfig file for transpilation
         run: |
