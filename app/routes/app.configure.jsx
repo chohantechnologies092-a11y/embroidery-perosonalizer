@@ -106,6 +106,10 @@ export const action = async ({ request }) => {
         );
         const pJson = await pRes.json();
         const productHandle = pJson.data?.product?.handle || "unknown";
+        const existing = await prisma.personalizerConfig.findUnique({
+          where: { shop_productId: { shop: session.shop, productId: id } },
+        });
+        const isActive = existing?.isActive ?? true;
 
         await prisma.personalizerConfig.upsert({
           where: { shop_productId: { shop: session.shop, productId: id } },
@@ -126,6 +130,7 @@ export const action = async ({ request }) => {
             zoneWidth,
             zoneHeight,
             zoneAngle,
+            isActive,
           },
         });
         await admin.graphql(
@@ -148,6 +153,7 @@ export const action = async ({ request }) => {
                     zoneWidth,
                     zoneHeight,
                     zoneAngle,
+                    isActive,
                   }),
                 },
               ],
