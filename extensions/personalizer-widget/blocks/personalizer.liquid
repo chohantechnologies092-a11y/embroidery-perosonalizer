@@ -1,3 +1,5 @@
+{% assign prod_config = product.metafields.embroidery_app.config.value %}
+{% if prod_config != blank %}
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Lobster&family=Pacifico&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Alex+Brush&family=Parisienne&family=Sacramento&family=Cookie&family=Charm:wght@400;700&display=swap" rel="stylesheet">
 <style>
   .em-personalizer-wrapper {
@@ -103,7 +105,7 @@
     letter-spacing: 0.5px;
   }
 
-  .em-textarea, .em-select, .em-file-input {
+  .em-line-input, .em-select, .em-file-input {
     width: 100%;
     padding: 14px;
     border: 1px solid rgba(0,0,0,0.1);
@@ -114,15 +116,11 @@
     transition: all 0.2s;
     color: #111;
   }
-  .em-textarea:focus, .em-select:focus, .em-file-input:focus {
+  .em-line-input:focus, .em-select:focus, .em-file-input:focus {
     outline: none;
     border-color: #000;
     box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
     background: #fff;
-  }
-  .em-textarea {
-    min-height: 100px;
-    resize: vertical;
   }
   
   .em-char-counter {
@@ -131,6 +129,23 @@
     color: #888;
     margin-top: 4px;
     font-weight: 500;
+  }
+  
+  .em-btn-secondary {
+    width: 100%;
+    padding: 12px;
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .em-btn-secondary:hover {
+    background: #e4e4e4;
+    border-color: #ccc;
   }
 
   /* Color Swatches */
@@ -240,11 +255,43 @@
     </div>
     
     <div id="em-text-section">
-      <div class="em-form-group">
-        <label>Your Text Here *</label>
-        <textarea class="em-textarea" id="em-text-area" maxlength="500" placeholder="Your Text Here"></textarea>
-        <div class="em-char-counter"><span id="em-char-count">0</span>/500</div>
+      <div class="em-line-group" id="em-line-group-1">
+        <div class="em-form-group">
+          <label>Line 1 Text *</label>
+          <input type="text" class="em-line-input" id="em-line-1" maxlength="10" placeholder="Line 1">
+          <div class="em-char-counter"><span id="em-char-count-1">0</span>/<span class="em-max-chars">10</span></div>
+        </div>
+        <div class="em-form-group">
+          <label>Line 1 Text Size</label>
+          <input type="range" class="em-line-size" id="em-size-1" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+        </div>
       </div>
+
+      <div class="em-line-group" id="em-line-group-2" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
+        <div class="em-form-group">
+          <label>Line 2 Text</label>
+          <input type="text" class="em-line-input" id="em-line-2" maxlength="10" placeholder="Line 2">
+          <div class="em-char-counter"><span id="em-char-count-2">0</span>/<span class="em-max-chars">10</span></div>
+        </div>
+        <div class="em-form-group">
+          <label>Line 2 Text Size</label>
+          <input type="range" class="em-line-size" id="em-size-2" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+        </div>
+      </div>
+
+      <div class="em-line-group" id="em-line-group-3" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
+        <div class="em-form-group">
+          <label>Line 3 Text</label>
+          <input type="text" class="em-line-input" id="em-line-3" maxlength="10" placeholder="Line 3">
+          <div class="em-char-counter"><span id="em-char-count-3">0</span>/<span class="em-max-chars">10</span></div>
+        </div>
+        <div class="em-form-group">
+          <label>Line 3 Text Size</label>
+          <input type="range" class="em-line-size" id="em-size-3" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+        </div>
+      </div>
+
+      <button type="button" class="em-btn-secondary" id="em-add-line-btn">+ Add another line of embroidery (Extra Charge)</button>
     </div>
 
     <div id="em-image-section" style="display: none;">
@@ -269,10 +316,7 @@
       </select>
     </div>
 
-    <div class="em-form-group" id="em-size-section">
-      <label>Text Size</label>
-      <input type="range" id="em-font-size" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
-    </div>
+
 
     <div class="em-form-group" id="em-frame-section">
       <label>Frame Size</label>
@@ -295,6 +339,7 @@
   let imageVariantId = null;
   let activeColors = [{ name: "Black", hex: "#000000" }];
   let activeFonts = ["Arial", "Great Vibes", "Pacifico", "Dancing Script", "Lobster", "Alex Brush", "Parisienne", "Sacramento", "Cookie", "Charm"];
+  let frameConfig = [];
 
   // 1. Read Settings Securely from Shop Metafields!
   {% assign app_settings = shop.metafields.embroidery_app.settings.value %}
@@ -310,20 +355,35 @@
       if (settingsObj.fonts && settingsObj.fonts.length > 0) {
         activeFonts = settingsObj.fonts;
       }
+      if (settingsObj.frameConfig && settingsObj.frameConfig.length > 0) {
+        frameConfig = settingsObj.frameConfig;
+      }
     } catch(e) { console.log(e); }
   {% endif %}
 
   // UI Elements
   const btnExpand = document.getElementById('em-btn-expand');
   const formBox = document.getElementById('em-form-box');
-  const textArea = document.getElementById('em-text-area');
-  const charCount = document.getElementById('em-char-count');
+  const lineInputs = [
+    document.getElementById('em-line-1'),
+    document.getElementById('em-line-2'),
+    document.getElementById('em-line-3')
+  ];
+  const charCounts = [
+    document.getElementById('em-char-count-1'),
+    document.getElementById('em-char-count-2'),
+    document.getElementById('em-char-count-3')
+  ];
   const colorSwatches = document.getElementById('em-color-swatches');
   const colorLabel = document.getElementById('em-color-label');
   const colorInput = document.getElementById('em-color');
   const colorNameInput = document.getElementById('em-color-name');
   const fontSelect = document.getElementById('em-font-select');
-  const fontSizeSlider = document.getElementById('em-font-size');
+  const sizeSliders = [
+    document.getElementById('em-size-1'),
+    document.getElementById('em-size-2'),
+    document.getElementById('em-size-3')
+  ];
   const frameSizeSelect = document.getElementById('em-frame-size');
   const cartProps = document.getElementById('em-cart-properties');
   const fileInput = document.getElementById('em-file-input');
@@ -342,7 +402,6 @@
         document.getElementById('em-text-section').style.display = 'block';
         document.getElementById('em-image-section').style.display = 'none';
         document.getElementById('em-font-section').style.display = 'block';
-        document.getElementById('em-size-section').style.display = 'block';
         document.getElementById('em-frame-section').style.display = 'block';
         fileInput.removeAttribute('name');
         updatePreview();
@@ -352,7 +411,6 @@
         document.getElementById('em-text-section').style.display = 'none';
         document.getElementById('em-image-section').style.display = 'block';
         document.getElementById('em-font-section').style.display = 'none';
-        document.getElementById('em-size-section').style.display = 'none';
         document.getElementById('em-frame-section').style.display = 'none';
         fileInput.setAttribute('name', 'properties[Uploaded_Image]');
         if(previewOverlay) previewOverlay.innerHTML = '';
@@ -376,9 +434,26 @@
     }
   };
 
-  // Textarea Logic
-  textArea.addEventListener('input', () => {
-    charCount.innerText = textArea.value.length;
+  // Inputs Logic
+  let activeLines = 1;
+  const addLineBtn = document.getElementById('em-add-line-btn');
+  
+  lineInputs.forEach((input, index) => {
+    input.addEventListener('input', () => {
+      charCounts[index].innerText = input.value.length;
+      updatePreview();
+    });
+  });
+
+  addLineBtn.addEventListener('click', () => {
+    if (activeLines === 1) {
+      document.getElementById('em-line-group-2').style.display = 'block';
+      activeLines = 2;
+    } else if (activeLines === 2) {
+      document.getElementById('em-line-group-3').style.display = 'block';
+      activeLines = 3;
+      addLineBtn.style.display = 'none';
+    }
     updatePreview();
   });
 
@@ -455,18 +530,30 @@
   });
   
   fontSelect.addEventListener('change', updatePreview);
-  fontSizeSlider.addEventListener('input', updatePreview);
+  sizeSliders.forEach(slider => slider.addEventListener('input', updatePreview));
+
+  if (frameConfig.length === 0) {
+    frameConfig = [
+      { name: "12cm", maxLetters: "4", price: "4.00" },
+      { name: "15cm", maxLetters: "6", price: "6.00" },
+      { name: "18cm", maxLetters: "8", price: "8.00" }
+    ];
+  }
 
   // Populate Frame Sizes
+  frameConfig.forEach(frame => {
+    const opt = document.createElement('option');
+    opt.value = frame.name;
+    const formattedPrice = parseFloat(frame.price).toFixed(2);
+    opt.innerText = `${frame.name} (+£${formattedPrice})`;
+    opt.dataset.maxLetters = frame.maxLetters || 10;
+    frameSizeSelect.appendChild(opt);
+  });
+
+  // Also locate the image upload variant
   addonVariants.forEach(variant => {
     if (variant.title.toLowerCase().includes("image upload")) {
       imageVariantId = variant.id;
-    } else {
-      const opt = document.createElement('option');
-      opt.value = variant.id;
-      const formattedPrice = parseFloat(variant.price).toFixed(2);
-      opt.innerText = `${variant.title} +£${formattedPrice}`;
-      frameSizeSelect.appendChild(opt);
     }
   });
 
@@ -590,40 +677,76 @@
     window.addEventListener('load', () => setupPreviewOverlay(productConfig));
   }
 
+  frameSizeSelect.addEventListener('change', () => {
+    const selectedOpt = frameSizeSelect.options[frameSizeSelect.selectedIndex];
+    const maxL = selectedOpt.dataset.maxLetters || 10;
+    lineInputs.forEach((input, index) => {
+      input.setAttribute('maxlength', maxL);
+      if (input.value.length > maxL) {
+        input.value = input.value.substring(0, maxL);
+      }
+      charCounts[index].innerText = input.value.length;
+    });
+    document.querySelectorAll('.em-max-chars').forEach(span => span.innerText = maxL);
+    updatePreview();
+  });
+
   function updatePreview() {
     if (mode === 'text' && previewOverlay) {
       const overlays = document.querySelectorAll('.em-native-overlay');
       overlays.forEach(overlay => {
-        let pText = overlay.querySelector('.em-p-text-instance');
-        if (!pText) {
-          overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; font-size: 2em; line-height: 1; pointer-events: none;"></span>';
-          pText = overlay.querySelector('.em-p-text-instance');
-        }
+        overlay.innerHTML = '';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.color = colorInput.value;
+        overlay.style.setProperty('font-family', `"${fontSelect.value}", sans-serif`, 'important');
         
-        if (pText) {
-          const isPlaceholder = textArea.value.trim() === '';
-          pText.innerText = isPlaceholder ? "Your Text Here" : textArea.value;
-          pText.style.opacity = isPlaceholder ? '0.5' : '1';
-          
-          overlay.style.color = colorInput.value;
-          overlay.style.setProperty('font-family', `"${fontSelect.value}", sans-serif`, 'important');
-          overlay.style.border = isPlaceholder ? '2px dashed rgba(44, 110, 203, 0.6)' : 'none';
-          overlay.style.backgroundColor = isPlaceholder ? 'rgba(44, 110, 203, 0.1)' : 'transparent';
-          
-          const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
-          const calcSize = overlay.clientHeight * 0.4 * sizeMultiplier;
-          overlay.style.fontSize = calcSize + 'px';
+        const linesToDraw = [];
+        
+        const isPlaceholder1 = lineInputs[0].value.trim() === '';
+        linesToDraw.push({ text: isPlaceholder1 ? "Line 1" : lineInputs[0].value, sizeSlider: sizeSliders[0].value, isPlaceholder: isPlaceholder1 });
+        
+        if (activeLines >= 2) {
+          const isPlaceholder2 = lineInputs[1].value.trim() === '';
+          linesToDraw.push({ text: isPlaceholder2 ? "Line 2" : lineInputs[1].value, sizeSlider: sizeSliders[1].value, isPlaceholder: isPlaceholder2 });
         }
+        if (activeLines >= 3) {
+          const isPlaceholder3 = lineInputs[2].value.trim() === '';
+          linesToDraw.push({ text: isPlaceholder3 ? "Line 3" : lineInputs[2].value, sizeSlider: sizeSliders[2].value, isPlaceholder: isPlaceholder3 });
+        }
+
+        let allPlaceholders = linesToDraw.every(l => l.isPlaceholder);
+        overlay.style.border = allPlaceholders ? '2px dashed rgba(44, 110, 203, 0.6)' : 'none';
+        overlay.style.backgroundColor = allPlaceholders ? 'rgba(44, 110, 203, 0.1)' : 'transparent';
+
+        linesToDraw.forEach((line) => {
+          const span = document.createElement('span');
+          span.innerText = line.text;
+          span.style.opacity = line.isPlaceholder ? '0.5' : '1';
+          span.style.lineHeight = '1.2';
+          span.style.whiteSpace = 'nowrap';
+          
+          const sizeMultiplier = parseFloat(line.sizeSlider) / 50;
+          const baseHeight = overlay.clientHeight / activeLines;
+          const calcSize = baseHeight * 0.4 * sizeMultiplier;
+          span.style.fontSize = calcSize + 'px';
+          overlay.appendChild(span);
+        });
       });
       
       let sizeText = frameSizeSelect.options[frameSizeSelect.selectedIndex]?.text || "None";
-      cartProps.value = `Text: ${textArea.value} | Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Size: ${sizeText}`;
+      let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Frame: ${sizeText}`;
+      props += ` | Line 1: ${lineInputs[0].value}`;
+      if (activeLines >= 2) props += ` | Line 2: ${lineInputs[1].value}`;
+      if (activeLines >= 3) props += ` | Line 3: ${lineInputs[2].value}`;
+      
+      cartProps.value = props;
     } else {
       cartProps.value = `Type: Image Upload | Color: ${colorNameInput.value}`;
     }
   }
-
-  frameSizeSelect.addEventListener('change', updatePreview);
 
   // Dynamic Pricing & Cart Interception
   const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
@@ -640,7 +763,16 @@
 
       let variantId = null;
       if (mode === 'text' && frameSizeSelect.value) {
-        variantId = frameSizeSelect.value;
+        const baseFrameName = frameSizeSelect.value;
+        const lineSuffix = `(${activeLines} Line${activeLines > 1 ? 's' : ''})`;
+        
+        const matchingVariant = addonVariants.find(v => v.title.includes(baseFrameName) && v.title.includes(lineSuffix));
+        if (matchingVariant) {
+          variantId = matchingVariant.id;
+        } else {
+           const fallback = addonVariants.find(v => v.title.includes(baseFrameName));
+           if (fallback) variantId = fallback.id;
+        }
       } else if (mode === 'image' && imageVariantId) {
         variantId = imageVariantId;
       }
@@ -675,6 +807,8 @@
 
 })();
 </script>
+
+{% endif %}
 
 {% schema %}
 {

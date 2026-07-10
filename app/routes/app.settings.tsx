@@ -48,9 +48,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       frameSizes = JSON.parse(formData.get("frameSizes") as string);
     } catch {
       frameSizes = [
-        { name: "12cm", price: "4.00" },
-        { name: "15cm", price: "6.00" },
-        { name: "18cm", price: "8.00" }
+        { name: "12cm", price: "4.00", maxLetters: "4" },
+        { name: "15cm", price: "6.00", maxLetters: "6" },
+        { name: "18cm", price: "8.00", maxLetters: "8" }
       ];
     }
 
@@ -131,7 +131,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             value: JSON.stringify({ 
               colors: JSON.parse(defaultColors), 
               addonVariants,
-              fonts: formData.get("defaultFonts") ? JSON.parse(formData.get("defaultFonts") as string) : []
+              fonts: formData.get("defaultFonts") ? JSON.parse(formData.get("defaultFonts") as string) : [],
+              frameConfig: frameSizes
             })
           }]
         }
@@ -183,7 +184,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         value: JSON.stringify({ 
           colors: JSON.parse(defaultColors), 
           addonVariants,
-          fonts: JSON.parse(defaultFonts)
+          fonts: JSON.parse(defaultFonts),
+          frameConfig: JSON.parse(frameSizes)
         })
       }]
     }
@@ -227,9 +229,9 @@ export default function Settings() {
       throw new Error();
     } catch {
       return [
-        { name: "12cm", price: "4.00" },
-        { name: "15cm", price: "6.00" },
-        { name: "18cm", price: "8.00" }
+        { name: "12cm", price: "4.00", maxLetters: "4" },
+        { name: "15cm", price: "6.00", maxLetters: "6" },
+        { name: "18cm", price: "8.00", maxLetters: "8" }
       ];
     }
   });
@@ -309,6 +311,19 @@ export default function Settings() {
                           autoComplete="off"
                         />
                       </div>
+                      <div style={{ flex: 1 }}>
+                        <TextField
+                          label="Max Letters"
+                          type="number"
+                          value={size.maxLetters || ""}
+                          onChange={(val) => {
+                            const newSizes = [...frameSizes];
+                            newSizes[index].maxLetters = val;
+                            setFrameSizes(newSizes);
+                          }}
+                          autoComplete="off"
+                        />
+                      </div>
                       <div style={{ marginTop: '24px' }}>
                         <Button 
                           tone="critical"
@@ -325,7 +340,7 @@ export default function Settings() {
                   <InlineStack>
                     <Button 
                       onClick={() => {
-                        setFrameSizes([...frameSizes, { name: "New Size", price: "0.00" }]);
+                        setFrameSizes([...frameSizes, { name: "New Size", price: "0.00", maxLetters: "10" }]);
                       }}
                     >
                       + Add Frame Size
