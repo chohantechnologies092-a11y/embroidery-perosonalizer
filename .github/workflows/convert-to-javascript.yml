@@ -102,7 +102,7 @@ jobs:
         run: |
           git add .
           git checkout -b $TEMP_BRANCH
-          git commit -m "Convert template to Javascript"
+          git diff-index --quiet HEAD || git commit -m "Convert template to Javascript"
           git checkout $TARGET_BRANCH || git checkout -b $TARGET_BRANCH
           git pull origin $TARGET_BRANCH || echo "No remote $TARGET_BRANCH branch yet"
           git checkout -

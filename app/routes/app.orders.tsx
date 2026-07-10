@@ -64,7 +64,7 @@ export default function Orders() {
 
   // Helper to parse the custom attributes
   const parseDetails = (lineItems: any[]) => {
-    let details = { type: "None", text: "-", font: "-", color: "-", size: "-", image: null };
+    const details = { type: "None", text: "-", font: "-", color: "-", size: "-", image: null as string | null };
     
     for (const li of lineItems) {
       for (const attr of li.node.customAttributes) {

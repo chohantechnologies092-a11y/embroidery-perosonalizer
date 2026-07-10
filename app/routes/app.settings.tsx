@@ -54,8 +54,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       ];
     }
 
-    let variants: any[] = [];
-    let optionValues: any[] = [];
+    const variants: any[] = [];
+    const optionValues: any[] = [];
     
     frameSizes.forEach((size: any) => {
       optionValues.push({ name: `${size.name} (1 Line)` });
