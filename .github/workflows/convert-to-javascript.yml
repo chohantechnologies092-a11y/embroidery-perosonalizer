@@ -15,6 +15,9 @@ on:
 jobs:
   convert-ts-files:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       TARGET_BRANCH: ${{ inputs.target-branch }}
       WORK_BRANCH: ${{ inputs.target-branch }}_updates
@@ -107,7 +110,7 @@ jobs:
             exit 0
           fi
           echo "HAS_CHANGES=true" >> $GITHUB_ENV
-          git checkout -b $TEMP_BRANCH
+          git checkout -B $TEMP_BRANCH
           git commit -m "Convert template to Javascript"
           git checkout $TARGET_BRANCH || git checkout -b $TARGET_BRANCH
           git pull origin $TARGET_BRANCH || echo "No remote $TARGET_BRANCH branch yet"
