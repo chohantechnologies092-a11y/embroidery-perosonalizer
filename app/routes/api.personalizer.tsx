@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { authenticate, unauthenticated } from "../shopify.server";
 import prisma from "../db.server";
-import cors from "cors";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // We can authenticate via app proxy if set up, but for a public storefront widget

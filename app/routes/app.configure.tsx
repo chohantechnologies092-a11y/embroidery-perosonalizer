@@ -276,9 +276,9 @@ export default function Configure() {
                     Fonts, Colors, and Pricing are applied globally across all products.
                   </Text>
                   <List type="bullet">
-                    <List.Item>2 Lines: £{globalSettings.price2Lines}</List.Item>
-                    <List.Item>3 Lines: £{globalSettings.price3Lines}</List.Item>
-                    <List.Item>Image Upload: £{globalSettings.priceImage}</List.Item>
+                    <List.Item>2 Lines: £{globalSettings?.price2Lines}</List.Item>
+                    <List.Item>3 Lines: £{globalSettings?.price3Lines}</List.Item>
+                    <List.Item>Image Upload: £{globalSettings?.priceImage}</List.Item>
                   </List>
                   <Button onClick={() => navigate('/app/settings')}>
                     Edit Global Settings

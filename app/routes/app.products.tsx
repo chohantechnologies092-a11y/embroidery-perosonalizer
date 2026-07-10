@@ -57,7 +57,7 @@ export default function Products() {
           {zoneWidth}% x {zoneHeight}%
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <Badge tone="info">{zoneAngle}&deg;</Badge>
+          <Badge tone="info">{`${zoneAngle}°`}</Badge>
         </IndexTable.Cell>
         <IndexTable.Cell>
           <Button size="micro" onClick={() => navigate(`/app/configure?ids=${encodeURIComponent(productId)}`)}>

@@ -54,10 +54,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       ];
     }
 
-    let variants = [];
-    let optionValues = [];
+    let variants: any[] = [];
+    let optionValues: any[] = [];
     
-    frameSizes.forEach(size => {
+    frameSizes.forEach((size: any) => {
       optionValues.push({ name: `${size.name} (1 Line)` });
       optionValues.push({ name: `${size.name} (2 Lines)` });
       optionValues.push({ name: `${size.name} (3 Lines)` });
@@ -313,7 +313,7 @@ export default function Settings() {
                         <Button 
                           tone="critical"
                           onClick={() => {
-                            const newSizes = frameSizes.filter((_, i) => i !== index);
+                            const newSizes = frameSizes.filter((_: any, i: number) => i !== index);
                             setFrameSizes(newSizes);
                           }}
                         >
@@ -424,9 +424,9 @@ export default function Settings() {
                     </div>
                     <Button 
                       tone="critical"
-                      onClick={() => {
-                        const newColors = colors.filter((_, i) => i !== index);
-                        setColors(newColors);
+                          onClick={() => {
+                            const newColors = colors.filter((_: any, i: number) => i !== index);
+                            setColors(newColors);
                       }}
                     >
                       X

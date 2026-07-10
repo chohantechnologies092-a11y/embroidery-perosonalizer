@@ -122,7 +122,7 @@ export default function Index() {
                 <Text as="h2" variant="headingSm">
                   Recent Personalized Orders
                 </Text>
-                <Text as="p" variant="heading3xl" tone="info">
+                <Text as="p" variant="heading3xl">
                   {recentOrders.length}
                 </Text>
                 <InlineStack align="end">
