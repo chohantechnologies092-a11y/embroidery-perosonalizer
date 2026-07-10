@@ -1,5 +1,5 @@
 {% assign prod_config = product.metafields.embroidery_app.config.value %}
-{% if prod_config != blank %}
+{% if prod_config != blank and prod_config.isActive != false %}
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Lobster&family=Pacifico&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Alex+Brush&family=Parisienne&family=Sacramento&family=Cookie&family=Charm:wght@400;700&display=swap" rel="stylesheet">
 <style>
   .em-personalizer-wrapper {
@@ -255,43 +255,53 @@
     </div>
     
     <div id="em-text-section">
+      <div class="em-form-group" id="em-placement-section">
+        <label>Embroidery Placement</label>
+        <select class="em-select" id="em-placement-size">
+          <option value="Left Chest">Left Chest</option>
+          <option value="Right Chest">Right Chest</option>
+          <option value="Center">Center</option>
+          <option value="Back">Back</option>
+        </select>
+      </div>
+
       <div class="em-line-group" id="em-line-group-1">
         <div class="em-form-group">
           <label>Line 1 Text *</label>
-          <input type="text" class="em-line-input" id="em-line-1" maxlength="10" placeholder="Line 1">
-          <div class="em-char-counter"><span id="em-char-count-1">0</span>/<span class="em-max-chars">10</span></div>
+          <input type="text" class="em-line-input" id="em-line-1" maxlength="10" placeholder="Please select Frame Size first" disabled>
+          <div class="em-char-counter"><span id="em-char-count-1">0</span>/<span class="em-max-chars">-</span></div>
         </div>
         <div class="em-form-group">
           <label>Line 1 Text Size</label>
-          <input type="range" class="em-line-size" id="em-size-1" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+          <input type="range" class="em-line-size" id="em-size-1" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
         </div>
       </div>
 
       <div class="em-line-group" id="em-line-group-2" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
         <div class="em-form-group">
           <label>Line 2 Text</label>
-          <input type="text" class="em-line-input" id="em-line-2" maxlength="10" placeholder="Line 2">
-          <div class="em-char-counter"><span id="em-char-count-2">0</span>/<span class="em-max-chars">10</span></div>
+          <input type="text" class="em-line-input" id="em-line-2" maxlength="10" placeholder="Line 2" disabled>
+          <div class="em-char-counter"><span id="em-char-count-2">0</span>/<span class="em-max-chars">-</span></div>
         </div>
         <div class="em-form-group">
           <label>Line 2 Text Size</label>
-          <input type="range" class="em-line-size" id="em-size-2" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+          <input type="range" class="em-line-size" id="em-size-2" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
         </div>
       </div>
 
       <div class="em-line-group" id="em-line-group-3" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
         <div class="em-form-group">
           <label>Line 3 Text</label>
-          <input type="text" class="em-line-input" id="em-line-3" maxlength="10" placeholder="Line 3">
-          <div class="em-char-counter"><span id="em-char-count-3">0</span>/<span class="em-max-chars">10</span></div>
+          <input type="text" class="em-line-input" id="em-line-3" maxlength="10" placeholder="Line 3" disabled>
+          <div class="em-char-counter"><span id="em-char-count-3">0</span>/<span class="em-max-chars">-</span></div>
         </div>
         <div class="em-form-group">
           <label>Line 3 Text Size</label>
-          <input type="range" class="em-line-size" id="em-size-3" min="10" max="100" value="50" style="width:100%; cursor:pointer;">
+          <input type="range" class="em-line-size" id="em-size-3" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
         </div>
       </div>
 
-      <button type="button" class="em-btn-secondary" id="em-add-line-btn">+ Add another line of embroidery (Extra Charge)</button>
+      <button type="button" class="em-btn-secondary" id="em-add-line-btn" style="opacity: 0.5; pointer-events: none;">+ Add another line of embroidery (Extra Charge)</button>
     </div>
 
     <div id="em-image-section" style="display: none;">
@@ -385,6 +395,7 @@
     document.getElementById('em-size-3')
   ];
   const frameSizeSelect = document.getElementById('em-frame-size');
+  const placementSelect = document.getElementById('em-placement-size');
   const cartProps = document.getElementById('em-cart-properties');
   const fileInput = document.getElementById('em-file-input');
   
@@ -663,8 +674,74 @@
       });
       
       previewOverlay = true; // Mark as initialized
-      return true;
     }
+    
+    // Zoom / Lightbox Observer: Watch for new product images being added to the DOM
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        if (mutation.addedNodes) {
+          mutation.addedNodes.forEach(node => {
+            if (node.tagName === 'IMG' || (node.querySelectorAll && node.querySelectorAll('img').length > 0)) {
+              const imgs = node.tagName === 'IMG' ? [node] : node.querySelectorAll('img');
+              imgs.forEach(img => {
+                if (img.clientWidth < 150) return;
+                const src = img.src || img.currentSrc || img.getAttribute('data-src') || "";
+                if (src && productFilenames.some(filename => src.includes(filename))) {
+                  // Wait a brief moment for the image to fully render its size in the lightbox
+                  setTimeout(() => {
+                    if (img.closest('.em-native-overlay')) return; // ignore overlays
+                    if (img.nextElementSibling && img.nextElementSibling.classList.contains('em-native-overlay')) return; // already added
+
+                    const parent = img.offsetParent || img.parentElement;
+                    if (window.getComputedStyle(parent).position === 'static') {
+                      parent.style.position = 'relative';
+                    }
+
+                    let overlay = document.createElement('div');
+                    overlay.className = 'em-native-overlay';
+                    
+                    const updatePosition = () => {
+                      const safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
+                      const safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
+                      const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
+                      const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
+                      const angle = productConfig.zoneAngle || 0;
+
+                      const imgWidth = img.clientWidth;
+                      const imgHeight = img.clientHeight;
+                      const imgTop = img.offsetTop;
+                      const imgLeft = img.offsetLeft;
+
+                      overlay.style.left = imgLeft + (imgWidth * (safeX / 100)) + 'px';
+                      overlay.style.top = imgTop + (imgHeight * (safeY / 100)) + 'px';
+                      overlay.style.width = imgWidth * (safeW / 100) + 'px';
+                      overlay.style.height = imgHeight * (safeH / 100) + 'px';
+                      overlay.style.transform = `rotate(${angle}deg)`;
+                      overlay.style.transformOrigin = 'center center';
+                    };
+
+                    updatePosition();
+                    const resizeObserver = new ResizeObserver(() => updatePosition());
+                    resizeObserver.observe(img);
+
+                    overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
+                    overlay.style.zIndex = '9999'; // ensure it's visible in high z-index lightboxes
+                    parent.appendChild(overlay);
+                    
+                    // Force a re-render of the text inside the new overlay
+                    updatePreview();
+                  }, 100);
+                }
+              });
+            }
+          });
+        }
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return true;
     
     console.log("Embroidery Personalizer: Could not find main product image on the page.");
     return false;
@@ -680,13 +757,23 @@
   frameSizeSelect.addEventListener('change', () => {
     const selectedOpt = frameSizeSelect.options[frameSizeSelect.selectedIndex];
     const maxL = selectedOpt.dataset.maxLetters || 10;
+    
+    // Enable inputs once a frame size is selected
     lineInputs.forEach((input, index) => {
+      input.removeAttribute('disabled');
+      input.setAttribute('placeholder', `Line ${index + 1}`);
+      sizeSliders[index].removeAttribute('disabled');
+      
       input.setAttribute('maxlength', maxL);
       if (input.value.length > maxL) {
         input.value = input.value.substring(0, maxL);
       }
       charCounts[index].innerText = input.value.length;
     });
+    
+    document.getElementById('em-add-line-btn').style.opacity = '1';
+    document.getElementById('em-add-line-btn').style.pointerEvents = 'auto';
+
     document.querySelectorAll('.em-max-chars').forEach(span => span.innerText = maxL);
     updatePreview();
   });
@@ -737,7 +824,8 @@
       });
       
       let sizeText = frameSizeSelect.options[frameSizeSelect.selectedIndex]?.text || "None";
-      let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Frame: ${sizeText}`;
+      let placementText = placementSelect ? placementSelect.value : "Left Chest";
+      let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Frame: ${sizeText} | Placement: ${placementText}`;
       props += ` | Line 1: ${lineInputs[0].value}`;
       if (activeLines >= 2) props += ` | Line 2: ${lineInputs[1].value}`;
       if (activeLines >= 3) props += ` | Line 3: ${lineInputs[2].value}`;
