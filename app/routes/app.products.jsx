@@ -256,7 +256,9 @@ export default function Products() {
 
   const handleSelectProducts = async () => {
     const selectionIds = configs.map((c) => ({
-      id: `gid://shopify/Product/${c.productId}`,
+      id: c.productId.startsWith("gid://")
+        ? c.productId
+        : `gid://shopify/Product/${c.productId}`,
     }));
     const payload = await shopify.resourcePicker({
       type: "product",
