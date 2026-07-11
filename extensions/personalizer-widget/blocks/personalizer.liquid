@@ -151,31 +151,33 @@
   /* Color Swatches */
   .em-swatches {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
     margin-top: 8px;
+    align-items: center;
   }
   .em-swatch-item {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    min-height: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
     flex-shrink: 0 !important;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     border-radius: 50% !important;
     cursor: pointer;
-    border: 2px solid transparent;
-    transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border: 1px solid rgba(0,0,0,0.1) !important;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
   .em-swatch-item:hover {
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
   }
   .em-swatch-active {
-    border: 2px solid #000;
+    box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px #000 !important;
+    border: none !important;
     transform: scale(1.1);
   }
 
@@ -535,13 +537,13 @@
     swatch.style.padding = '0';
     swatch.style.margin = '0';
 
-    swatch.onclick = (e) => {
+      swatch.onclick = (e) => {
       e.preventDefault();
       document.querySelectorAll('.em-swatch-item').forEach(el => el.classList.remove('em-swatch-active'));
       swatch.classList.add('em-swatch-active');
       colorInput.value = c.hex || c;
       colorNameInput.value = c.name || c;
-      colorLabel.innerText = "Select a color: " + (c.name || c);
+      colorLabel.innerHTML = "Select a Color: <strong>" + (c.name || c) + "</strong>";
       updatePreview();
     };
     colorSwatches.appendChild(swatch);
@@ -551,7 +553,7 @@
     const firstCol = activeColors[0];
     colorInput.value = firstCol.hex || firstCol;
     colorNameInput.value = firstCol.name || firstCol;
-    colorLabel.innerText = "Select a color: " + (firstCol.name || firstCol);
+    colorLabel.innerHTML = "Select a Color: <strong>" + (firstCol.name || firstCol) + "</strong>";
   }
 
   // Populate Fonts
