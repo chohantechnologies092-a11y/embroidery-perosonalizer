@@ -152,9 +152,22 @@
   .em-swatches {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 8px; /* space for scrollbar */
     margin-top: 8px;
     align-items: center;
+    scrollbar-width: thin; /* Firefox */
+  }
+  .em-swatches::-webkit-scrollbar {
+    height: 6px;
+  }
+  .em-swatches::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .em-swatches::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.15);
+    border-radius: 10px;
   }
   .em-swatch-item {
     width: 32px !important;
