@@ -3,7 +3,7 @@ import { useLoaderData, useSubmit, useActionData, useNavigate, useNavigation, us
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppBridge, TitleBar } from "@shopify/app-bridge-react";
 import {
   Page,
@@ -236,9 +236,11 @@ export default function Settings() {
     }
   });
 
-  if (actionData?.success) {
-    shopify.toast.show(actionData.message || "Saved successfully!");
-  }
+  useEffect(() => {
+    if (actionData?.success) {
+      shopify.toast.show(actionData.message || "Saved successfully!");
+    }
+  }, [actionData, shopify]);
 
   const handleSave = () => {
     const formData = new FormData();
