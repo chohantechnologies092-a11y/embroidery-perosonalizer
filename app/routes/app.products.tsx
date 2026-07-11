@@ -210,7 +210,9 @@ export default function Products() {
   } = useIndexResourceState(paginatedConfigs as any);
 
   const handleSelectProducts = async () => {
-    const selectionIds = configs.map(c => ({ id: `gid://shopify/Product/${c.productId}` }));
+    const selectionIds = configs.map(c => ({ 
+      id: c.productId.startsWith('gid://') ? c.productId : `gid://shopify/Product/${c.productId}` 
+    }));
 
     const payload = await shopify.resourcePicker({
       type: "product",
