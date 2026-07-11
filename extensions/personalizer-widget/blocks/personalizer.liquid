@@ -255,6 +255,13 @@
     </div>
     
     <div id="em-text-section">
+      <div class="em-form-group" id="em-frame-section">
+        <label>Frame Size *</label>
+        <select class="em-select" id="em-frame-size">
+          <option value="" disabled selected>Select Frame Size to start</option>
+        </select>
+      </div>
+
       <div class="em-form-group" id="em-placement-section">
         <label>Embroidery Placement</label>
         <select class="em-select" id="em-placement-size">
@@ -262,6 +269,7 @@
           <option value="Right Chest">Right Chest</option>
           <option value="Center">Center</option>
           <option value="Back">Back</option>
+          <option value="Custom">Custom (Drag on Image)</option>
         </select>
       </div>
 
@@ -323,15 +331,6 @@
       <label>Select a Font</label>
       <select class="em-select" id="em-font-select">
         <!-- populated by JS -->
-      </select>
-    </div>
-
-
-
-    <div class="em-form-group" id="em-frame-section">
-      <label>Frame Size</label>
-      <select class="em-select" id="em-frame-size">
-        <option value="" disabled selected>Select option</option>
       </select>
     </div>
 
@@ -398,6 +397,8 @@
   const placementSelect = document.getElementById('em-placement-size');
   const cartProps = document.getElementById('em-cart-properties');
   const fileInput = document.getElementById('em-file-input');
+  let customCoords = null;
+  window.emOverlayUpdateFunctions = [];
   
   // Tab logic
   let mode = 'text';
@@ -542,6 +543,13 @@
   
   fontSelect.addEventListener('change', updatePreview);
   sizeSliders.forEach(slider => slider.addEventListener('input', updatePreview));
+  
+  placementSelect.addEventListener('change', () => {
+    if (window.emOverlayUpdateFunctions) {
+      window.emOverlayUpdateFunctions.forEach(fn => fn());
+    }
+    updatePreview();
+  });
 
   if (frameConfig.length === 0) {
     frameConfig = [
@@ -556,8 +564,9 @@
     const opt = document.createElement('option');
     opt.value = frame.name;
     const formattedPrice = parseFloat(frame.price).toFixed(2);
-    opt.innerText = `${frame.name} (+£${formattedPrice})`;
-    opt.dataset.maxLetters = frame.maxLetters || 10;
+    const maxL = frame.maxLetters || 10;
+    opt.innerText = `${frame.name} - Max ${maxL} Letters (+£${formattedPrice})`;
+    opt.dataset.maxLetters = maxL;
     frameSizeSelect.appendChild(opt);
   });
 
@@ -619,46 +628,110 @@
       console.log("Embroidery Personalizer: Found " + targetImages.length + " matching images.");
       
       targetImages.forEach((targetImage, idx) => {
-        const parent = targetImage.offsetParent || targetImage.parentElement;
-        if (window.getComputedStyle(parent).position === 'static') {
-          parent.style.position = 'relative';
-        }
-        
         let overlay = document.createElement('div');
         overlay.className = 'em-native-overlay';
         overlay.id = 'em-overlay-' + idx;
         
+        let isOverlayActive = true;
+        
         const updatePosition = () => {
-          const safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
-          const safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
+          if (!document.body.contains(targetImage)) {
+             isOverlayActive = false;
+             overlay.remove();
+             return;
+          }
+
+          const computedStyle = window.getComputedStyle(targetImage);
+          const computedPos = computedStyle.position;
+          
+          let offsetParent = targetImage.offsetParent;
+          
+          if (computedPos === 'fixed') {
+              overlay.style.position = 'fixed';
+              if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+          } else {
+              overlay.style.position = 'absolute';
+              if (!offsetParent || offsetParent === document.body) {
+                  offsetParent = document.body;
+              }
+              if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
+          }
+
+          let safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
+          let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
           const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
           const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
           const angle = productConfig.zoneAngle || 0;
 
-          const imgWidth = targetImage.clientWidth;
-          const imgHeight = targetImage.clientHeight;
-          const imgTop = targetImage.offsetTop;
-          const imgLeft = targetImage.offsetLeft;
+          const placement = placementSelect.value;
+          if (placement === 'Right Chest') {
+             safeX = 100 - safeX - safeW; 
+          } else if (placement === 'Center' || placement === 'Back') {
+             safeX = 50 - (safeW / 2);
+          } else if (placement === 'Custom' && customCoords) {
+             safeX = customCoords.x;
+             safeY = customCoords.y;
+          }
 
-          const exactLeft = imgLeft + (imgWidth * (safeX / 100));
-          const exactTop = imgTop + (imgHeight * (safeY / 100));
-          const exactWidth = imgWidth * (safeW / 100);
-          const exactHeight = imgHeight * (safeH / 100);
+          const imgRect = targetImage.getBoundingClientRect();
+          let exactLeft, exactTop;
 
-          overlay.style.left = exactLeft + 'px';
-          overlay.style.top = exactTop + 'px';
-          overlay.style.width = exactWidth + 'px';
-          overlay.style.height = exactHeight + 'px';
+          if (computedPos === 'fixed') {
+             exactLeft = imgRect.left;
+             exactTop = imgRect.top;
+          } else {
+             let docScrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+             let docScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+             if (offsetParent === document.body || offsetParent === document.documentElement) {
+                 exactLeft = imgRect.left + docScrollLeft;
+                 exactTop = imgRect.top + docScrollTop;
+             } else {
+                 const parentRect = offsetParent.getBoundingClientRect();
+                 const parentComputed = window.getComputedStyle(offsetParent);
+                 const borderLeft = parseFloat(parentComputed.borderLeftWidth) || 0;
+                 const borderTop = parseFloat(parentComputed.borderTopWidth) || 0;
+                 
+                 exactLeft = imgRect.left - parentRect.left - borderLeft + offsetParent.scrollLeft;
+                 exactTop = imgRect.top - parentRect.top - borderTop + offsetParent.scrollTop;
+             }
+          }
+
+          const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100));
+          const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100));
+          const exactOverlayWidth = imgRect.width * (safeW / 100);
+          const exactOverlayHeight = imgRect.height * (safeH / 100);
+
+          overlay.style.left = exactOverlayLeft + 'px';
+          overlay.style.top = exactOverlayTop + 'px';
+          overlay.style.width = exactOverlayWidth + 'px';
+          overlay.style.height = exactOverlayHeight + 'px';
           
           overlay.style.transform = `rotate(${angle}deg)`;
           overlay.style.transformOrigin = 'center center';
           
-          const sizeMultiplier = parseFloat(fontSizeSlider.value) / 50;
-          const calcSize = exactHeight * 0.4 * sizeMultiplier;
+          const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
+          const calcSize = exactOverlayHeight * 0.4 * sizeMultiplier;
           overlay.style.fontSize = calcSize + 'px';
+          
+          overlay.style.opacity = computedStyle.opacity;
+          overlay.style.display = computedStyle.display === 'none' ? 'none' : 'flex';
+
+          if (placement === 'Custom') {
+             overlay.style.pointerEvents = 'auto';
+             overlay.style.cursor = 'move';
+          } else {
+             overlay.style.pointerEvents = 'none';
+             overlay.style.cursor = 'default';
+          }
+          
+          if (isOverlayActive && !isDragging) {
+             requestAnimationFrame(updatePosition);
+          }
         };
 
-        updatePosition();
+        window.emOverlayUpdateFunctions.push(updatePosition);
+        requestAnimationFrame(updatePosition);
         const resizeObserver = new ResizeObserver(() => updatePosition());
         resizeObserver.observe(targetImage);
 
@@ -667,10 +740,51 @@
         overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
         overlay.style.boxSizing = 'border-box';
         
-        // Ensure z-index is high enough to appear above EComposer wrappers but below lightboxes
-        overlay.style.zIndex = '99';
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
 
-        parent.appendChild(overlay);
+        const onPointerDown = (e) => {
+          if (placementSelect.value !== 'Custom') return;
+          isDragging = true;
+          startX = e.clientX || (e.touches && e.touches[0].clientX);
+          startY = e.clientY || (e.touches && e.touches[0].clientY);
+          initialLeft = overlay.offsetLeft;
+          initialTop = overlay.offsetTop;
+          e.preventDefault();
+        };
+
+        const onPointerMove = (e) => {
+          if (!isDragging) return;
+          const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+          const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+          const dx = clientX - startX;
+          const dy = clientY - startY;
+          overlay.style.left = (initialLeft + dx) + 'px';
+          overlay.style.top = (initialTop + dy) + 'px';
+        };
+
+        const onPointerUp = (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          const imgWidth = targetImage.clientWidth;
+          const imgHeight = targetImage.clientHeight;
+          customCoords = {
+             x: ((overlay.offsetLeft - targetImage.offsetLeft) / imgWidth) * 100,
+             y: ((overlay.offsetTop - targetImage.offsetTop) / imgHeight) * 100
+          };
+          window.emOverlayUpdateFunctions.forEach(fn => fn());
+          updatePreview();
+        };
+
+        overlay.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('mousemove', onPointerMove);
+        document.addEventListener('mouseup', onPointerUp);
+        overlay.addEventListener('touchstart', onPointerDown, {passive: false});
+        document.addEventListener('touchmove', onPointerMove, {passive: false});
+        document.addEventListener('touchend', onPointerUp);
+        
+        // Make sure it has a high z-index
+        overlay.style.zIndex = '99';
       });
       
       previewOverlay = true; // Mark as initialized
@@ -692,41 +806,111 @@
                     if (img.closest('.em-native-overlay')) return; // ignore overlays
                     if (img.nextElementSibling && img.nextElementSibling.classList.contains('em-native-overlay')) return; // already added
 
-                    const parent = img.offsetParent || img.parentElement;
-                    if (window.getComputedStyle(parent).position === 'static') {
-                      parent.style.position = 'relative';
-                    }
-
                     let overlay = document.createElement('div');
                     overlay.className = 'em-native-overlay';
+                    let isOverlayActive = true;
                     
                     const updatePosition = () => {
-                      const safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
-                      const safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
+                      if (!document.body.contains(img)) {
+                         isOverlayActive = false;
+                         overlay.remove();
+                         return;
+                      }
+
+                      const computedStyle = window.getComputedStyle(img);
+                      const computedPos = computedStyle.position;
+                      
+                      let offsetParent = img.offsetParent;
+                      
+                      if (computedPos === 'fixed') {
+                          overlay.style.position = 'fixed';
+                          if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+                      } else {
+                          overlay.style.position = 'absolute';
+                          if (!offsetParent || offsetParent === document.body) {
+                              offsetParent = document.body;
+                          }
+                          if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
+                      }
+
+                      let safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
+                      let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
                       const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
                       const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
                       const angle = productConfig.zoneAngle || 0;
 
-                      const imgWidth = img.clientWidth;
-                      const imgHeight = img.clientHeight;
-                      const imgTop = img.offsetTop;
-                      const imgLeft = img.offsetLeft;
+                      const placement = placementSelect.value;
+                      if (placement === 'Right Chest') {
+                         safeX = 100 - safeX - safeW; 
+                      } else if (placement === 'Center' || placement === 'Back') {
+                         safeX = 50 - (safeW / 2);
+                      } else if (placement === 'Custom' && customCoords) {
+                         safeX = customCoords.x;
+                         safeY = customCoords.y;
+                      }
 
-                      overlay.style.left = imgLeft + (imgWidth * (safeX / 100)) + 'px';
-                      overlay.style.top = imgTop + (imgHeight * (safeY / 100)) + 'px';
-                      overlay.style.width = imgWidth * (safeW / 100) + 'px';
-                      overlay.style.height = imgHeight * (safeH / 100) + 'px';
+                      const imgRect = img.getBoundingClientRect();
+                      let exactLeft, exactTop;
+
+                      if (computedPos === 'fixed') {
+                         exactLeft = imgRect.left;
+                         exactTop = imgRect.top;
+                      } else {
+                         let docScrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+                         let docScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                         if (offsetParent === document.body || offsetParent === document.documentElement) {
+                             exactLeft = imgRect.left + docScrollLeft;
+                             exactTop = imgRect.top + docScrollTop;
+                         } else {
+                             const parentRect = offsetParent.getBoundingClientRect();
+                             const parentComputed = window.getComputedStyle(offsetParent);
+                             const borderLeft = parseFloat(parentComputed.borderLeftWidth) || 0;
+                             const borderTop = parseFloat(parentComputed.borderTopWidth) || 0;
+                             
+                             exactLeft = imgRect.left - parentRect.left - borderLeft + offsetParent.scrollLeft;
+                             exactTop = imgRect.top - parentRect.top - borderTop + offsetParent.scrollTop;
+                         }
+                      }
+
+                      const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100));
+                      const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100));
+                      const exactOverlayWidth = imgRect.width * (safeW / 100);
+                      const exactOverlayHeight = imgRect.height * (safeH / 100);
+
+                      overlay.style.left = exactOverlayLeft + 'px';
+                      overlay.style.top = exactOverlayTop + 'px';
+                      overlay.style.width = exactOverlayWidth + 'px';
+                      overlay.style.height = exactOverlayHeight + 'px';
+                      
                       overlay.style.transform = `rotate(${angle}deg)`;
                       overlay.style.transformOrigin = 'center center';
+                      
+                      const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
+                      const calcSize = exactOverlayHeight * 0.4 * sizeMultiplier;
+                      overlay.style.fontSize = calcSize + 'px';
+                      
+                      overlay.style.opacity = computedStyle.opacity;
+                      overlay.style.display = computedStyle.display === 'none' ? 'none' : 'flex';
+                      
+                      if (placement === 'Custom') {
+                         overlay.style.pointerEvents = 'auto';
+                         overlay.style.cursor = 'move';
+                      } else {
+                         overlay.style.pointerEvents = 'none';
+                         overlay.style.cursor = 'default';
+                      }
+                      
+                      if (isOverlayActive) {
+                         requestAnimationFrame(updatePosition);
+                      }
                     };
-
-                    updatePosition();
-                    const resizeObserver = new ResizeObserver(() => updatePosition());
-                    resizeObserver.observe(img);
-
+                    
                     overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
-                    overlay.style.zIndex = '9999'; // ensure it's visible in high z-index lightboxes
-                    parent.appendChild(overlay);
+                    overlay.style.zIndex = '9999';
+
+                    window.emOverlayUpdateFunctions.push(updatePosition);
+                    requestAnimationFrame(updatePosition);
                     
                     // Force a re-render of the text inside the new overlay
                     updatePreview();
@@ -825,6 +1009,9 @@
       
       let sizeText = frameSizeSelect.options[frameSizeSelect.selectedIndex]?.text || "None";
       let placementText = placementSelect ? placementSelect.value : "Left Chest";
+      if (placementText === 'Custom' && customCoords) {
+          placementText = `Custom (X: ${Math.round(customCoords.x)}%, Y: ${Math.round(customCoords.y)}%)`;
+      }
       let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Frame: ${sizeText} | Placement: ${placementText}`;
       props += ` | Line 1: ${lineInputs[0].value}`;
       if (activeLines >= 2) props += ` | Line 2: ${lineInputs[1].value}`;

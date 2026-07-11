@@ -137,9 +137,11 @@ export default function Products() {
       return (
         <IndexTable.Row id={id} key={id} position={index}>
           <IndexTable.Cell>
-            <Text variant="bodyMd" fontWeight="bold" as="span">
-              {productHandle}
-            </Text>
+            <div style={{ maxWidth: '300px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+              <Text variant="bodyMd" fontWeight="bold" as="span" breakWord>
+                {productHandle}
+              </Text>
+            </div>
           </IndexTable.Cell>
           <IndexTable.Cell>
             {zoneWidth}% x {zoneHeight}%
