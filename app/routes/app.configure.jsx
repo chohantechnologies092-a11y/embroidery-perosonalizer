@@ -7,7 +7,7 @@ import {
   isRouteErrorResponse,
 } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppBridge, TitleBar } from "@shopify/app-bridge-react";
 import {
   Page,
@@ -182,9 +182,11 @@ export default function Configure() {
   const [zoneHeight, setZoneHeight] = useState(config?.zoneHeight ?? 10);
   const [zoneAngle, setZoneAngle] = useState(config?.zoneAngle ?? 0);
 
-  if (actionData?.success) {
-    shopify.toast.show("Configuration saved!");
-  }
+  useEffect(() => {
+    if (actionData?.success) {
+      shopify.toast.show("Configuration saved!");
+    }
+  }, [actionData, shopify]);
 
   const handleSave = () => {
     const formData = new FormData();
