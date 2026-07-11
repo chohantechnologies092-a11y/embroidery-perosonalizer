@@ -7,6 +7,7 @@ import {
 } from "react-router";
 import { useAppBridge, TitleBar } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { useState, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -18,44 +19,122 @@ import {
   IndexTable,
   Badge,
   InlineStack,
+  IndexFilters,
+  ChoiceList,
+  useIndexResourceState,
 } from "@shopify/polaris";
-import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
 
 export const action = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
+
+  if (intent === "bulk_delete") {
+    const productIdsStr = formData.get("productIds");
+
+    if (!productIdsStr) return null;
+    const productIds = JSON.parse(productIdsStr);
+
+    await prisma.personalizerConfig.deleteMany({
+      where: { shop: session.shop, productId: { in: productIds } },
+    });
+    const chunks = [];
+
+    for (let i = 0; i < productIds.length; i += 25) {
+      chunks.push(productIds.slice(i, i + 25));
+    }
+
+    for (const chunk of chunks) {
+      const metafields = chunk.map((id) => ({
+        ownerId: id,
+        namespace: "embroidery_app",
+        key: "config",
+      }));
+
+      await admin.graphql(
+        `
+        mutation MetafieldsDelete($metafields: [MetafieldIdentifierInput!]!) {
+          metafieldsDelete(metafields: $metafields) { deletedMetafields { key } }
+        }
+      `,
+        { variables: { metafields } },
+      );
+    }
+
+    return { success: true };
+  }
+
+  if (intent === "bulk_status") {
+    const productIdsStr = formData.get("productIds");
+
+    if (!productIdsStr) return null;
+    const productIds = JSON.parse(productIdsStr);
+    const newIsActive = formData.get("isActive") === "true";
+
+    await prisma.personalizerConfig.updateMany({
+      where: { shop: session.shop, productId: { in: productIds } },
+      data: { isActive: newIsActive },
+    });
+    const updatedConfigs = await prisma.personalizerConfig.findMany({
+      where: { shop: session.shop, productId: { in: productIds } },
+    });
+    const chunks = [];
+
+    for (let i = 0; i < updatedConfigs.length; i += 25) {
+      chunks.push(updatedConfigs.slice(i, i + 25));
+    }
+
+    for (const chunk of chunks) {
+      const metafields = chunk.map((c) => ({
+        ownerId: c.productId,
+        namespace: "embroidery_app",
+        key: "config",
+        type: "json",
+        value: JSON.stringify({
+          zoneX: c.zoneX,
+          zoneY: c.zoneY,
+          zoneWidth: c.zoneWidth,
+          zoneHeight: c.zoneHeight,
+          zoneAngle: c.zoneAngle,
+          isActive: c.isActive,
+        }),
+      }));
+
+      await admin.graphql(
+        `
+        mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) { userErrors { message } }
+        }
+      `,
+        { variables: { metafields } },
+      );
+    }
+
+    return { success: true };
+  }
+
   const productId = formData.get("productId");
 
-  if (!productId) return new Response("Product ID required", { status: 400 });
+  if (!productId) return null;
 
   if (intent === "delete") {
     await prisma.personalizerConfig.delete({
-      where: {
-        shop_productId: {
-          shop: session.shop,
-          productId: productId,
-        },
-      },
+      where: { shop_productId: { shop: session.shop, productId } },
     });
     await admin.graphql(
       `
       mutation MetafieldsDelete($metafields: [MetafieldIdentifierInput!]!) {
         metafieldsDelete(metafields: $metafields) {
           deletedMetafields { key }
-          userErrors { message }
         }
       }
     `,
       {
         variables: {
           metafields: [
-            {
-              ownerId: productId,
-              namespace: "embroidery_app",
-              key: "config",
-            },
+            { ownerId: productId, namespace: "embroidery_app", key: "config" },
           ],
         },
       },
@@ -68,12 +147,7 @@ export const action = async ({ request }) => {
     const isActiveStr = formData.get("isActive");
     const newIsActive = isActiveStr === "true";
     const updated = await prisma.personalizerConfig.update({
-      where: {
-        shop_productId: {
-          shop: session.shop,
-          productId: productId,
-        },
-      },
+      where: { shop_productId: { shop: session.shop, productId } },
       data: { isActive: newIsActive },
     });
 
@@ -125,8 +199,44 @@ export default function Products() {
   const { configs } = useLoaderData();
   const navigate = useNavigate();
   const shopify = useAppBridge();
-  const shopDomain = configs.length > 0 ? configs[0].shop : "";
   const submit = useSubmit();
+  const shopDomain = configs.length > 0 ? configs[0].shop : "";
+  const [queryValue, setQueryValue] = useState("");
+  const [status, setStatus] = useState(undefined);
+  const [mode, setMode] = useState("DEFAULT");
+  const handleQueryValueChange = useCallback(
+    (value) => setQueryValue(value),
+    [],
+  );
+  const handleQueryValueRemove = useCallback(() => setQueryValue(""), []);
+  const handleStatusChange = useCallback((value) => setStatus(value), []);
+  const handleStatusRemove = useCallback(() => setStatus(undefined), []);
+  const handleClearAll = useCallback(() => {
+    handleQueryValueRemove();
+    handleStatusRemove();
+  }, [handleQueryValueRemove, handleStatusRemove]);
+  const filteredConfigs = configs.filter((config) => {
+    let match = true;
+
+    if (queryValue) {
+      match =
+        match &&
+        config.productHandle.toLowerCase().includes(queryValue.toLowerCase());
+    }
+
+    if (status && status.length > 0) {
+      if (status[0] === "active") match = match && config.isActive;
+      if (status[0] === "inactive") match = match && !config.isActive;
+    }
+
+    return match;
+  });
+  const {
+    selectedResources,
+    allResourcesSelected,
+    handleSelectionChange,
+    clearSelection,
+  } = useIndexResourceState(filteredConfigs);
 
   const handleSelectProducts = async () => {
     const payload = await shopify.resourcePicker({
@@ -142,7 +252,36 @@ export default function Products() {
     }
   };
 
-  const productRowMarkup = configs.map(
+  const filters = [
+    {
+      key: "status",
+      label: "Status",
+      filter: (
+        <ChoiceList
+          title="Status"
+          titleHidden
+          choices={[
+            { label: "Active", value: "active" },
+            { label: "Inactive", value: "inactive" },
+          ]}
+          selected={status || []}
+          onChange={handleStatusChange}
+        />
+      ),
+      shortcut: true,
+    },
+  ];
+  const appliedFilters = [];
+
+  if (status && status.length > 0) {
+    appliedFilters.push({
+      key: "status",
+      label: `Status: ${status[0]}`,
+      onRemove: handleStatusRemove,
+    });
+  }
+
+  const productRowMarkup = filteredConfigs.map(
     (
       {
         id,
@@ -158,7 +297,12 @@ export default function Products() {
       const shopUrl = `https://${shopDomain}/products/${productHandle}`;
 
       return (
-        <IndexTable.Row id={id} key={id} position={index}>
+        <IndexTable.Row
+          id={id}
+          key={id}
+          position={index}
+          selected={selectedResources.includes(id)}
+        >
           <IndexTable.Cell>
             <div
               style={{
@@ -263,20 +407,118 @@ export default function Products() {
                 </p>
               </EmptyState>
             ) : (
-              <IndexTable
-                resourceName={{ singular: "product", plural: "products" }}
-                itemCount={configs.length}
-                headings={[
-                  { title: "Product Handle" },
-                  { title: "Embroidery Zone Size" },
-                  { title: "Rotation Angle" },
-                  { title: "Status" },
-                  { title: "Action" },
-                ]}
-                selectable={false}
-              >
-                {productRowMarkup}
-              </IndexTable>
+              <BlockStack>
+                <IndexFilters
+                  queryValue={queryValue}
+                  queryPlaceholder="Search products by handle"
+                  onQueryChange={handleQueryValueChange}
+                  onQueryClear={handleQueryValueRemove}
+                  onClearAll={handleClearAll}
+                  cancelAction={{
+                    onAction: handleClearAll,
+                    disabled: false,
+                    loading: false,
+                  }}
+                  tabs={[{ content: "All", id: "all-0" }]}
+                  selected={0}
+                  onSelect={() => {}}
+                  filters={filters}
+                  appliedFilters={appliedFilters}
+                  mode={mode}
+                  setMode={setMode}
+                />
+                <IndexTable
+                  resourceName={{ singular: "product", plural: "products" }}
+                  itemCount={filteredConfigs.length}
+                  selectedItemsCount={
+                    allResourcesSelected ? "All" : selectedResources.length
+                  }
+                  onSelectionChange={handleSelectionChange}
+                  promotedBulkActions={[
+                    {
+                      content: "Activate",
+                      onAction: () => {
+                        const productIds = selectedResources
+                          .map(
+                            (id) =>
+                              filteredConfigs.find((c) => c.id === id)
+                                ?.productId,
+                          )
+                          .filter(Boolean);
+
+                        submit(
+                          {
+                            intent: "bulk_status",
+                            productIds: JSON.stringify(productIds),
+                            isActive: "true",
+                          },
+                          { method: "post" },
+                        );
+                        clearSelection();
+                      },
+                    },
+                    {
+                      content: "Deactivate",
+                      onAction: () => {
+                        const productIds = selectedResources
+                          .map(
+                            (id) =>
+                              filteredConfigs.find((c) => c.id === id)
+                                ?.productId,
+                          )
+                          .filter(Boolean);
+
+                        submit(
+                          {
+                            intent: "bulk_status",
+                            productIds: JSON.stringify(productIds),
+                            isActive: "false",
+                          },
+                          { method: "post" },
+                        );
+                        clearSelection();
+                      },
+                    },
+                    {
+                      content: "Delete",
+                      onAction: () => {
+                        if (
+                          confirm(
+                            "Are you sure you want to delete the selected configurations?",
+                          )
+                        ) {
+                          const productIds = selectedResources
+                            .map(
+                              (id) =>
+                                filteredConfigs.find((c) => c.id === id)
+                                  ?.productId,
+                            )
+                            .filter(Boolean);
+
+                          submit(
+                            {
+                              intent: "bulk_delete",
+                              productIds: JSON.stringify(productIds),
+                            },
+                            { method: "post" },
+                          );
+                          clearSelection();
+                        }
+                      },
+                    },
+                  ]}
+                  headings={[
+                    { title: "Product Handle" },
+                    { title: "Embroidery Zone Size" },
+                    { title: "Rotation Angle" },
+                    { title: "Status" },
+                    { title: "Action" },
+                  ]}
+                  selectable={true}
+                >
+                  {productRowMarkup}
+                </IndexTable>
+              </BlockStack>
             )}
           </Card>
         </Layout.Section>
