@@ -204,13 +204,24 @@ export default function Products() {
   const [queryValue, setQueryValue] = useState("");
   const [status, setStatus] = useState(undefined);
   const [mode, setMode] = useState("DEFAULT");
-  const handleQueryValueChange = useCallback(
-    (value) => setQueryValue(value),
-    [],
-  );
-  const handleQueryValueRemove = useCallback(() => setQueryValue(""), []);
-  const handleStatusChange = useCallback((value) => setStatus(value), []);
-  const handleStatusRemove = useCallback(() => setStatus(undefined), []);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  const handleQueryValueChange = useCallback((value) => {
+    setQueryValue(value);
+    setCurrentPage(1);
+  }, []);
+  const handleQueryValueRemove = useCallback(() => {
+    setQueryValue("");
+    setCurrentPage(1);
+  }, []);
+  const handleStatusChange = useCallback((value) => {
+    setStatus(value);
+    setCurrentPage(1);
+  }, []);
+  const handleStatusRemove = useCallback(() => {
+    setStatus(undefined);
+    setCurrentPage(1);
+  }, []);
   const handleClearAll = useCallback(() => {
     handleQueryValueRemove();
     handleStatusRemove();
@@ -231,24 +242,51 @@ export default function Products() {
 
     return match;
   });
+  const totalPages = Math.ceil(filteredConfigs.length / itemsPerPage);
+  const paginatedConfigs = filteredConfigs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
   const {
     selectedResources,
     allResourcesSelected,
     handleSelectionChange,
     clearSelection,
-  } = useIndexResourceState(filteredConfigs);
+  } = useIndexResourceState(paginatedConfigs);
 
   const handleSelectProducts = async () => {
+    const selectionIds = configs.map((c) => ({
+      id: `gid://shopify/Product/${c.productId}`,
+    }));
     const payload = await shopify.resourcePicker({
       type: "product",
       action: "select",
       multiple: true,
+      selectionIds: selectionIds,
     });
 
-    if (payload && payload.length > 0) {
-      const ids = payload.map((p) => p.id).join(",");
+    if (payload) {
+      const currentIds = configs.map((c) => c.productId);
+      const payloadIds = payload.map((p) => p.id.split("/").pop());
+      const toAdd = payloadIds.filter((id) => !currentIds.includes(id));
+      const toRemove = currentIds.filter((id) => !payloadIds.includes(id));
 
-      navigate(`/app/configure?ids=${encodeURIComponent(ids)}`);
+      if (toRemove.length > 0) {
+        if (
+          confirm(
+            `${toRemove.length} products were deselected in the picker. Do you want to remove their embroidery configurations?`,
+          )
+        ) {
+          submit(
+            { intent: "bulk_delete", productIds: JSON.stringify(toRemove) },
+            { method: "post" },
+          );
+        }
+      }
+
+      if (toAdd.length > 0) {
+        navigate(`/app/configure?ids=${encodeURIComponent(toAdd.join(","))}`);
+      }
     }
   };
 
@@ -281,7 +319,7 @@ export default function Products() {
     });
   }
 
-  const productRowMarkup = filteredConfigs.map(
+  const productRowMarkup = paginatedConfigs.map(
     (
       {
         id,
@@ -515,6 +553,12 @@ export default function Products() {
                     { title: "Action" },
                   ]}
                   selectable={true}
+                  pagination={{
+                    hasNext: currentPage < totalPages,
+                    hasPrevious: currentPage > 1,
+                    onNext: () => setCurrentPage((prev) => prev + 1),
+                    onPrevious: () => setCurrentPage((prev) => prev - 1),
+                  }}
                 >
                   {productRowMarkup}
                 </IndexTable>
