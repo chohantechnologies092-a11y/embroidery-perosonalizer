@@ -221,7 +221,7 @@ export default function Products() {
     
     if (payload) {
       const currentIds = configs.map(c => c.productId);
-      const payloadIds = payload.map(p => p.id.split('/').pop() as string);
+      const payloadIds = payload.map(p => p.id);
       
       const toAdd = payloadIds.filter(id => !currentIds.includes(id));
       const toRemove = currentIds.filter(id => !payloadIds.includes(id));
