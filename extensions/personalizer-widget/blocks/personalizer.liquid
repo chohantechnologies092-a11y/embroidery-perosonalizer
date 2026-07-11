@@ -273,6 +273,11 @@
         </select>
       </div>
 
+      <div class="em-form-group" id="em-angle-section">
+        <label>Rotation Angle (<span id="em-angle-label">0°</span>)</label>
+        <input type="range" class="em-line-size" id="em-rotation-angle" min="-180" max="180" value="0" style="width:100%; cursor:pointer;">
+      </div>
+
       <div class="em-line-group" id="em-line-group-1">
         <div class="em-form-group">
           <label>Line 1 Text *</label>
@@ -397,6 +402,8 @@
   const placementSelect = document.getElementById('em-placement-size');
   const cartProps = document.getElementById('em-cart-properties');
   const fileInput = document.getElementById('em-file-input');
+  const angleSlider = document.getElementById('em-rotation-angle');
+  const angleLabel = document.getElementById('em-angle-label');
   let customCoords = null;
   window.emOverlayUpdateFunctions = [];
   
@@ -477,6 +484,21 @@
       productConfig = {{ prod_config | json }};
     } catch(e) {}
   {% endif %}
+
+  if (productConfig && angleSlider) {
+      angleSlider.value = productConfig.zoneAngle || 0;
+      angleLabel.innerText = angleSlider.value + '°';
+  }
+
+  if (angleSlider) {
+      angleSlider.addEventListener('input', (e) => {
+          angleLabel.innerText = e.target.value + '°';
+          if (window.emOverlayUpdateFunctions) {
+              window.emOverlayUpdateFunctions.forEach(fn => fn());
+          }
+          updatePreview();
+      });
+  }
 
   // Fallback / Primary fetch for Variants directly from Shopify Storefront JS
   // This ensures variants load if the Liquid drop failed (e.g. not fully published but accessible)
@@ -661,7 +683,7 @@
           let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
           const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
           const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
-          const angle = productConfig.zoneAngle || 0;
+          const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
 
           const placement = placementSelect.value;
           if (placement === 'Right Chest') {
@@ -837,7 +859,7 @@
                       let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
                       const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
                       const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
-                      const angle = productConfig.zoneAngle || 0;
+                      const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
 
                       const placement = placementSelect.value;
                       if (placement === 'Right Chest') {
@@ -1013,6 +1035,9 @@
           placementText = `Custom (X: ${Math.round(customCoords.x)}%, Y: ${Math.round(customCoords.y)}%)`;
       }
       let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Frame: ${sizeText} | Placement: ${placementText}`;
+      if (angleSlider && angleSlider.value !== "0") {
+         props += ` | Angle: ${angleSlider.value}°`;
+      }
       props += ` | Line 1: ${lineInputs[0].value}`;
       if (activeLines >= 2) props += ` | Line 2: ${lineInputs[1].value}`;
       if (activeLines >= 3) props += ` | Line 3: ${lineInputs[2].value}`;
