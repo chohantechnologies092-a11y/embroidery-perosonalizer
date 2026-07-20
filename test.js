@@ -1,426 +1,7 @@
-{% assign prod_config = product.metafields.embroidery_app.config.value %}
-{% if prod_config != blank and prod_config.isActive != false %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSK/6dG+63nBO1oA++1aA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<style>
-  @font-face {
-    font-family: 'Disneycute';
-    src: url('{{ "Disneycute.otf" | asset_url }}') format('opentype');
-    font-weight: normal;
-    font-style: normal;
-  }
-  @font-face {
-    font-family: 'Relitha';
-    src: url('{{ "relitha.otf" | asset_url }}') format('opentype');
-    font-weight: normal;
-    font-style: normal;
-  }
 
-  .em-loader-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(255, 255, 255, 0.9);
-    z-index: 999999; display: none;
-    flex-direction: column; align-items: center; justify-content: center;
-  }
-  .em-spinner {
-    width: 40px; height: 40px; border: 4px solid #f3f3f3;
-    border-top: 4px solid #000; border-radius: 50%;
-    animation: em-spin 1s linear infinite; margin-bottom: 15px;
-  }
-  @keyframes em-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .em-loader-text { font-size: 18px; font-weight: 600; color: #333; }
-  .em-personalizer-wrapper {
-    margin-bottom: 25px;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  }
-
-  /* Main Button */
-  .em-btn-main {
-    width: 100%;
-    padding: 16px 20px;
-    background: linear-gradient(135deg, #111 0%, #333 100%);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 700;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-  .em-btn-main:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    background: linear-gradient(135deg, #222 0%, #444 100%);
-  }
-  .em-btn-main svg {
-    transition: transform 0.3s;
-  }
-  .em-btn-main.is-open svg {
-    transform: rotate(180deg);
-  }
-
-  /* Glassmorphism Container */
-  .em-form-container {
-    padding: 24px;
-    margin-top: 15px;
-    display: none;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,0.8);
-    animation: emFadeIn 0.4s ease-out forwards;
-  }
-
-  @keyframes emFadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Tabs (Segmented Control) */
-  .em-tabs {
-    display: flex;
-    background: rgba(0,0,0,0.04);
-    border-radius: 10px;
-    padding: 4px;
-    margin-bottom: 24px;
-    position: relative;
-  }
-  .em-tabs label {
-    flex: 1;
-    text-align: center;
-    padding: 10px 15px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #555;
-    cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.3s;
-    margin: 0;
-  }
-  .em-tabs input[type="radio"] {
-    display: none;
-  }
-  .em-tabs input[type="radio"]:checked + span {
-    color: #000;
-  }
-  .em-tab-checked {
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    color: #000 !important;
-  }
-
-  /* Form Groups & Inputs */
-  .em-form-group {
-    margin-bottom: 20px;
-  }
-  .em-form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    font-size: 13px;
-    color: #333;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .em-line-input, .em-select, .em-file-input {
-    width: 100%;
-    padding: 14px;
-    border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 10px;
-    background: rgba(255,255,255,0.8);
-    font-family: inherit;
-    font-size: 15px;
-    transition: all 0.2s;
-    color: #111;
-  }
-  .em-line-input:focus, .em-select:focus, .em-file-input:focus {
-    outline: none;
-    border-color: #000;
-    box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
-    background: #fff;
-  }
-  
-  .em-char-counter {
-    text-align: right;
-    font-size: 12px;
-    color: #888;
-    margin-top: 4px;
-    font-weight: 500;
-  }
-  
-  .em-btn-secondary {
-    width: 100%;
-    padding: 12px;
-    background: #f0f0f0;
-    color: #333;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-bottom: 20px;
-  }
-  .em-btn-secondary:hover {
-    background: #e4e4e4;
-    border-color: #ccc;
-  }
-
-  /* Color Swatches */
-  .em-swatches {
-    display: flex;
-    gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 8px; /* space for scrollbar */
-    margin-top: 8px;
-    align-items: center;
-    scrollbar-width: thin; /* Firefox */
-  }
-  .em-swatches::-webkit-scrollbar {
-    height: 6px;
-  }
-  .em-swatches::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .em-swatches::-webkit-scrollbar-thumb {
-    background-color: rgba(0,0,0,0.15);
-    border-radius: 10px;
-  }
-  .em-swatch-item {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    flex-shrink: 0 !important;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50% !important;
-    cursor: pointer;
-    border: 1px solid rgba(0,0,0,0.1) !important;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-  .em-swatch-item:hover {
-    transform: scale(1.1);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-  }
-  .em-swatch-active {
-    box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px #000 !important;
-    border: none !important;
-    transform: scale(1.1);
-  }
-
-  /* Range Slider */
-  input[type=range] {
-    -webkit-appearance: none;
-    width: 100%;
-    background: transparent;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    height: 20px;
-    width: 20px;
-    border-radius: 50%;
-    background: #000;
-    cursor: pointer;
-    margin-top: -8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    transition: transform 0.1s;
-  }
-  input[type=range]::-webkit-slider-thumb:active {
-    transform: scale(1.2);
-  }
-  input[type=range]::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 4px;
-    cursor: pointer;
-    background: rgba(0,0,0,0.1);
-    border-radius: 2px;
-  }
-
-  /* Live Preview Overlay */
-  .em-native-overlay {
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    z-index: 10;
-    transition: transform 0.2s ease, opacity 0.3s ease, font-size 0.1s linear;
-  }
-  .em-native-overlay span {
-    line-height: 1.2;
-    text-align: center;
-    word-break: break-word;
-    width: 100%;
-    white-space: pre-wrap; 
-    text-shadow: 1px 1px 2px rgba(255,255,255,0.4);
-  }
-
-  /* Hide Buy Now button when personalization is active because it bypasses the cart */
-  .em-personalizer-wrapper.is-active ~ .shopify-payment-button,
-  .em-personalizer-wrapper.is-active ~ * .shopify-payment-button,
-  form:has(.em-personalizer-wrapper.is-active) .shopify-payment-button {
-    display: none !important;
-  }
-</style>
-
-<div class="em-loader-overlay" id="em-loader-overlay">
-  <div class="em-spinner"></div>
-  <div class="em-loader-text">Generating Personalization Preview...</div>
-</div>
-
-<div class="em-personalizer-wrapper" id="em-app-root">
-  <button type="button" class="em-btn-main" id="em-btn-expand">
-    <span>Customize & Personalize</span>
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-  </button>
-
-  <div class="em-form-container" id="em-form-box">
-    
-    <div class="em-tabs" id="em-tabs-container">
-      <label class="em-tab-checked" id="em-tab-text-label">
-        <input type="radio" name="em-type" value="text" checked> 
-        <span>Add Text</span>
-      </label>
-      <label id="em-tab-image-label">
-        <input type="radio" name="em-type" value="image"> 
-        <span>Upload Image</span>
-      </label>
-    </div>
-    
-    <div id="em-text-section">
-      <div class="em-form-group" id="em-frame-section">
-        <label>Frame Size *</label>
-        <select class="em-select" id="em-frame-size">
-          <option value="" disabled selected>Select Frame Size to start</option>
-        </select>
-      </div>
-
-      <div class="em-form-group" id="em-placement-section" style="display: none;">
-        <label>Embroidery Placement</label>
-        <select class="em-select" id="em-placement-size">
-          <option value="Custom" selected>Custom (Drag on Image)</option>
-        </select>
-      </div>
-
-      <div class="em-form-group" id="em-angle-section">
-        <label>Rotation Angle (<span id="em-angle-label">0°</span>)</label>
-        <input type="range" class="em-line-size" id="em-rotation-angle" min="-180" max="180" value="0" style="width:100%; cursor:pointer;">
-      </div>
-
-      <div class="em-line-group" id="em-line-group-1">
-        <div class="em-form-group">
-          <label>Line 1 Text *</label>
-          <input type="text" class="em-line-input" id="em-line-1" maxlength="10" placeholder="Please select Frame Size first" disabled>
-          <div class="em-char-counter"><span id="em-char-count-1">0</span>/<span class="em-max-chars">-</span></div>
-        </div>
-        <div class="em-form-group" style="display: none;">
-          <label>Line 1 Text Size</label>
-          <input type="range" class="em-line-size" id="em-size-1" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
-        </div>
-      </div>
-
-      <div class="em-line-group" id="em-line-group-2" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
-        <div class="em-form-group">
-          <label>Line 2 Frame Size *</label>
-          <select class="em-select" id="em-frame-size-2">
-            <option value="" disabled selected>Select Frame Size for Line 2</option>
-          </select>
-        </div>
-        <div class="em-form-group">
-          <label>Line 2 Text</label>
-          <input type="text" class="em-line-input" id="em-line-2" maxlength="10" placeholder="Please select Line 2 Frame Size" disabled>
-          <div class="em-char-counter"><span id="em-char-count-2">0</span>/<span class="em-max-chars">-</span></div>
-        </div>
-        <div class="em-form-group" style="display: none;">
-          <label>Line 2 Text Size</label>
-          <input type="range" class="em-line-size" id="em-size-2" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
-        </div>
-      </div>
-
-      <div class="em-line-group" id="em-line-group-3" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
-        <div class="em-form-group">
-          <label>Line 3 Frame Size *</label>
-          <select class="em-select" id="em-frame-size-3">
-            <option value="" disabled selected>Select Frame Size for Line 3</option>
-          </select>
-        </div>
-        <div class="em-form-group">
-          <label>Line 3 Text</label>
-          <input type="text" class="em-line-input" id="em-line-3" maxlength="10" placeholder="Please select Line 3 Frame Size" disabled>
-          <div class="em-char-counter"><span id="em-char-count-3">0</span>/<span class="em-max-chars">-</span></div>
-        </div>
-        <div class="em-form-group" style="display: none;">
-          <label>Line 3 Text Size</label>
-          <input type="range" class="em-line-size" id="em-size-3" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
-        </div>
-      </div>
-
-      <button type="button" class="em-btn-secondary" id="em-add-line-btn" style="opacity: 0.5; pointer-events: none;">+ Add another line of embroidery (Extra Charge)</button>
-    </div>
-
-    <div id="em-image-section" style="display: none;">
-      <div class="em-form-group">
-        <label>Upload Image *</label>
-        <!-- The name attribute connects it directly to the product form properties -->
-        <input type="file" id="em-file-input" class="em-file-input" accept="image/*" form="product-form-{{ section.id }}">
-      </div>
-    </div>
-    
-    <div class="em-form-group">
-      <label id="em-color-label">Select a color</label>
-      <div class="em-swatches" id="em-color-swatches"></div>
-      <input type="hidden" id="em-color" value="">
-      <input type="hidden" id="em-color-name" value="">
-    </div>
-
-    <div class="em-form-group" id="em-font-section">
-      <label>Select a Font</label>
-      <select class="em-select" id="em-font-select">
-        <!-- populated by JS -->
-      </select>
-    </div>
-
-  </div>
-
-  <!-- Hidden Fields for Cart -->
-  <input type="hidden" name="properties[Personalization_Details]" id="em-cart-properties" form="product-form-{{ section.id }}">
-
-  <!-- Our Own Add to Cart Button -->
-  <button type="button" id="em-add-to-cart-btn" style="
-    display: none;
-    width: 100%;
-    margin-top: 15px;
-    padding: 16px 20px;
-    background: linear-gradient(135deg, #000 0%, #333 100%);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 700;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  ">🛒 Add to Cart with Embroidery</button>
-</div>
-
-<script>
 (async function initEmbroideryWidget() {
   const shopDomain = Shopify.shop;
-  const productId = '{{ product.id }}';
+  const productId = 'null';
   let addonVariants = [];
   let imageVariantId = null;
   let activeColors = [
@@ -437,14 +18,14 @@
     { name: "Purple", hex: "#6A0DAD" },
     { name: "Orange", hex: "#FF6600" }
   ];
-  let activeFonts = ["Disneycute", "Relitha"];
+  let activeFonts = ["Arial", "Great Vibes", "Pacifico", "Dancing Script", "Lobster", "Alex Brush", "Parisienne", "Sacramento", "Cookie", "Charm"];
   let frameConfig = [];
 
   // 1. Read Settings Securely from Shop Metafields!
-  {% assign app_settings = shop.metafields.embroidery_app.settings.value %}
-  {% if app_settings != blank %}
+  
+  
     try {
-      const settingsObj = {{ app_settings | json }};
+      const settingsObj = null;
       if (settingsObj.addonVariants && settingsObj.addonVariants.length > 0) {
         addonVariants = settingsObj.addonVariants;
       }
@@ -458,7 +39,7 @@
         frameConfig = settingsObj.frameConfig;
       }
     } catch(e) { console.log(e); }
-  {% endif %}
+  
 
   // UI Elements
   const btnExpand = document.getElementById('em-btn-expand');
@@ -567,12 +148,12 @@
 
   // 2. Read Product Coordinates from Metafields (Instant!)
   let productConfig = null;
-  {% assign prod_config = product.metafields.embroidery_app.config.value %}
-  {% if prod_config != blank %}
+  
+  
     try {
-      productConfig = {{ prod_config | json }};
+      productConfig = null;
     } catch(e) {}
-  {% endif %}
+  
 
   if (productConfig && angleSlider) {
       angleSlider.value = productConfig.zoneAngle || 0;
@@ -758,9 +339,9 @@
 
     // Extract all product media filenames to find the exact product image on the page
     const productFilenames = [
-      {% for media in product.media %}
-        {{ media.src | split: '/' | last | split: '.' | first | json }}{% unless forloop.last %},{% endunless %}
-      {% endfor %}
+      
+        null,
+      
     ];
 
     let targetImages = [];
@@ -1236,8 +817,8 @@
     updatePriceDisplay();
   }
 
-  const emBasePrice = {{ product.selected_or_first_available_variant.price | default: product.price | divided_by: 100.0 | json }};
-  const emShopCurrency = '{{ cart.currency.symbol | default: "£" }}';
+  const emBasePrice = null;
+  const emShopCurrency = 'null';
 
   const updatePriceDisplay = () => {
     let extraCost = 0;
@@ -1285,7 +866,7 @@
 
       try {
         // Step 1: Get the main product variant
-        const variantId = {{ product.selected_or_first_available_variant.id | json }};
+        const variantId = null;
         const qtyInput = document.querySelector('input[name="quantity"], .quantity__input');
         const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
 
@@ -1394,14 +975,3 @@
   }
 
 })();
-</script>
-
-{% endif %}
-
-{% schema %}
-{
-  "name": "Embroidery Personalizer",
-  "target": "section",
-  "settings": []
-}
-{% endschema %}
