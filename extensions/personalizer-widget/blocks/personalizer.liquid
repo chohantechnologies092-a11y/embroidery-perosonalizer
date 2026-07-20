@@ -1299,6 +1299,21 @@
           return;
         }
 
+        // DIAGNOSTIC: Show what variants are available
+        const frameVal = frameSizeSelect ? frameSizeSelect.value : 'none';
+        const frameIdx = frameSizeSelect ? frameSizeSelect.selectedIndex : -1;
+        const frameDatasetId = (frameSizeSelect && frameIdx > 0) ? frameSizeSelect.options[frameIdx].dataset.variantId : 'none';
+        const variantTitles = addonVariants.map(v => v.id + ':' + v.title).join('\n');
+        alert(
+          'DEBUG INFO (remove later):\n\n' +
+          'Frame selected: ' + frameVal + '\n' +
+          'Frame dataset variantId: ' + frameDatasetId + '\n' +
+          'addonVariants count: ' + addonVariants.length + '\n' +
+          'Variants:\n' + (variantTitles || 'EMPTY - No variants!') + '\n\n' +
+          'mode: ' + mode + ', activeLines: ' + activeLines
+        );
+
+
         // Step 4: Build addon items (frames) using stored variantId from dataset
         let addons = [];
         if (mode === 'text') {
