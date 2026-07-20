@@ -633,6 +633,7 @@
     const maxL = frame.maxLetters || 10;
     opt.innerText = `${frame.name} - Max ${maxL} Letters (+£${formattedPrice})`;
     opt.dataset.maxLetters = maxL;
+    opt.dataset.price = frame.price;
     frameSizeSelect.appendChild(opt);
     if (frameSizeSelect2) frameSizeSelect2.appendChild(opt.cloneNode(true));
     if (frameSizeSelect3) frameSizeSelect3.appendChild(opt.cloneNode(true));
@@ -1167,7 +1168,41 @@
     } else {
       cartProps.value = `Type: Image Upload | Color: ${colorNameInput.value}`;
     }
+
+    updatePriceDisplay();
   }
+
+  const emBasePrice = {{ product.selected_or_first_available_variant.price | default: product.price | divided_by: 100.0 | json }};
+  const emShopCurrency = '{{ cart.currency.symbol | default: "£" }}';
+
+  const updatePriceDisplay = () => {
+    let extraCost = 0;
+    if (mode === 'text') {
+      const selects = [document.getElementById('em-frame-size'), document.getElementById('em-frame-size-2'), document.getElementById('em-frame-size-3')];
+      selects.forEach((selectElem, index) => {
+         if (index < activeLines && selectElem && selectElem.selectedIndex > 0) {
+             const opt = selectElem.options[selectElem.selectedIndex];
+             if (opt.dataset.price) {
+                 extraCost += parseFloat(opt.dataset.price);
+             }
+         }
+      });
+    } else if (mode === 'image' && imageVariantId) {
+      const imgVar = addonVariants.find(v => v.id === imageVariantId);
+      if (imgVar && imgVar.price) {
+         extraCost += (parseFloat(imgVar.price) / 100);
+      }
+    }
+
+    const newTotal = (emBasePrice + extraCost).toFixed(2);
+    const priceNodes = document.querySelectorAll('.price-item--regular, .price-item--sale, .product-single__price, .price__regular .price-item, .price__container .price-item, .price-list .price-item');
+    
+    priceNodes.forEach(node => {
+       if (/\d/.test(node.innerText) && !node.closest('s') && !node.closest('strike')) {
+           node.innerHTML = emShopCurrency + newTotal;
+       }
+    });
+  };
 
   // Dynamic Pricing & Cart Interception
   const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
