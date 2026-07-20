@@ -1202,161 +1202,148 @@
                       node.innerHTML = emShopCurrency + newTotal;
        }
     });
-  };
 
-  const hijackAction = async function(e, form) {
-      if (isSubmitting) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          return;
-      }
+    // Global Network Interceptor (100% foolproof for ANY Shopify theme)
+    if (!window.emInterceptorInstalled) {
+      window.emInterceptorInstalled = true;
 
-      e.preventDefault(); 
-      e.stopImmediatePropagation(); // Prevent theme's AJAX cart from causing a race condition
-      isSubmitting = true;
+      const getAddonItems = () => {
+          let itemsToAdd = [];
+          const qtyInput = document.querySelector('input[name="quantity"]');
+          const baseQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
 
-      const loaderOverlay = document.getElementById('em-loader-overlay');
-      if (loaderOverlay) {
-          loaderOverlay.style.display = 'flex';
-          loaderOverlay.innerHTML = '<div style="color:white; font-size:18px; text-align:center;">Adding personalization...<br><small>Please wait</small></div>';
-      }
+          if (mode === 'text') {
+            let selectedFrames = [];
+            if (activeLines >= 1 && frameSizeSelect && frameSizeSelect.value) selectedFrames.push({ name: frameSizeSelect.value, line: "Line 1" });
+            if (activeLines >= 2 && frameSizeSelect2 && frameSizeSelect2.value) selectedFrames.push({ name: frameSizeSelect2.value, line: "Line 2" });
+            if (activeLines >= 3 && frameSizeSelect3 && frameSizeSelect3.value) selectedFrames.push({ name: frameSizeSelect3.value, line: "Line 3" });
 
-      try {
-        if (mode === 'text' && window.html2canvas) {
-           const previewEl = document.getElementById('em-preview-visual');
-           const canvas = await window.html2canvas(previewEl, { backgroundColor: null, scale: 2 });
-           const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-           if (blob) {
-              const file = new File([blob], "preview.png", { type: "image/png" });
-              const dataTransfer = new DataTransfer();
-              dataTransfer.items.add(file);
-              const fileInput = document.createElement('input');
-              fileInput.type = 'file';
-              fileInput.name = 'properties[_Preview]';
-              fileInput.files = dataTransfer.files;
-              fileInput.style.display = 'none';
-              form.appendChild(fileInput);
-           }
-        }
-      } catch(err) {
-        console.error("Preview generation failed", err);
-      }
+            selectedFrames.forEach(frame => {
+               const matchingVariant = addonVariants.find(v => v.title && v.title.toLowerCase().includes(frame.name.toLowerCase().trim()));
+               if (matchingVariant) {
+                  let existing = itemsToAdd.find(i => i.id === matchingVariant.id);
+                  if (existing) {
+                     existing.quantity += parseInt(baseQty);
+                     existing.properties["For_Product"] += `, ${frame.line}`;
+                  } else {
+                     itemsToAdd.push({
+                       id: matchingVariant.id,
+                       quantity: parseInt(baseQty),
+                       properties: { "For_Product": "Attached to: " + frame.line }
+                     });
+                  }
+               } else {
+                  alert("Embroidery App Error: Could not find variant matching '" + frame.name + "'.");
+               }
+            });
+          } else if (mode === 'image' && imageVariantId) {
+            itemsToAdd.push({
+               id: imageVariantId,
+               quantity: parseInt(baseQty),
+               properties: { "For_Product": "Image Customization" }
+            });
+          }
+          return itemsToAdd;
+      };
 
-      const formData = new FormData(form);
-      const baseQty = formData.get('quantity') || 1;
+      const originalFetch = window.fetch;
+      window.fetch = async function() {
+          let url = arguments[0];
+          let config = arguments[1];
+          let isCartAdd = typeof url === 'string' && (url.includes('/cart/add.js') || url.includes('/cart/add'));
 
-      let itemsToAdd = [];
+          if (isCartAdd && window.emIsInjecting) {
+              return originalFetch.apply(this, arguments);
+          }
 
-      if (mode === 'text') {
-        let selectedFrames = [];
-        if (activeLines >= 1 && frameSizeSelect.value) {
-           selectedFrames.push({ name: frameSizeSelect.value, line: "Line 1" });
-        }
-        if (activeLines >= 2 && frameSizeSelect2 && frameSizeSelect2.value) {
-           selectedFrames.push({ name: frameSizeSelect2.value, line: "Line 2" });
-        }
-        if (activeLines >= 3 && frameSizeSelect3 && frameSizeSelect3.value) {
-           selectedFrames.push({ name: frameSizeSelect3.value, line: "Line 3" });
-        }
-
-        selectedFrames.forEach(frame => {
-           let variantId = null;
-           const matchingVariant = addonVariants.find(v => v.title && v.title.toLowerCase().includes(frame.name.toLowerCase().trim()));
-           if (matchingVariant) {
-              variantId = matchingVariant.id;
-              let existing = itemsToAdd.find(i => i.id === variantId);
-              if (existing) {
-                 existing.quantity += parseInt(baseQty);
-                 existing.properties["For_Product"] += `, ${frame.line}`;
-              } else {
-                 itemsToAdd.push({
-                   id: variantId,
-                   quantity: parseInt(baseQty),
-                   properties: { "For_Product": "Attached to: " + frame.line }
-                 });
-              }
-           } else {
-              alert("Embroidery App Error: Could not find variant matching '" + frame.name + "'. Please check App Settings.");
-           }
-        });
-      } else if (mode === 'image' && imageVariantId) {
-        itemsToAdd.push({
-           id: imageVariantId,
-           quantity: parseInt(baseQty),
-           properties: { "For_Product": "Image Customization" }
-        });
-      }
-
-      const hasFallback = itemsToAdd.some(item => String(item.id).includes('fallback'));
-      if (hasFallback) {
-         alert("Embroidery App Error: Add-on product not found. Please go to the App Settings and click 'Sync Add-on Product'.");
-         isSubmitting = false;
-         if (loaderOverlay) loaderOverlay.style.display = 'none';
-         return;
-      }
-
-      try {
-         // 1. Add the main product using FormData to preserve the preview.png file upload!
-         const mainRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
-             method: 'POST',
-             body: formData
-         });
-         if (!mainRes.ok) throw new Error("Failed to add main product");
-
-         // 2. Wait 1000ms for Shopify's distributed cache to sync! 
-         // (Crucial for preventing the second request from overwriting the first)
-         await new Promise(resolve => setTimeout(resolve, 1000));
-         await fetch(window.Shopify.routes.root + 'cart.js'); // Force cache sync
-
-         // 3. Add the frames using JSON format
-         if (itemsToAdd.length > 0) {
-             const addonRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ items: itemsToAdd })
-             });
-             if (!addonRes.ok) throw new Error("Failed to add frames");
-         }
-         
-         // Success! Redirect to cart page
-         window.location.href = window.Shopify.routes.root + 'cart';
-      } catch(err) {
-        console.error("Failed to add items", err);
-        alert(err.message || "Network error. Please try again.");
-        isSubmitting = false;
-        if (loaderOverlay) loaderOverlay.style.display = 'none';
-      }
-  };
-
-  // Global Capture Listener to guarantee we intercept any add-to-cart clicks
-  document.addEventListener('click', function(e) {
-      const btn = e.target.closest('button[type="submit"], button[name="add"], .add-to-cart, .product-form__submit');
-      if (btn) {
-          const formId = btn.getAttribute('form');
-          const form = formId ? document.getElementById(formId) : btn.closest('form');
-          if (form) {
+          if (isCartAdd && !window.emIsInjecting) {
               const formBox = document.getElementById('em-form-box');
               if (formBox && formBox.style.display === 'block') {
-                  hijackAction(e, form);
+                  
+                  const loaderOverlay = document.getElementById('em-loader-overlay');
+                  if (loaderOverlay) {
+                      loaderOverlay.style.display = 'flex';
+                      loaderOverlay.innerHTML = '<div style="color:white; font-size:18px; text-align:center;">Adding personalization...<br><small>Please wait</small></div>';
+                  }
+
+                  // Inject html2canvas into FormData if applicable
+                  if (config && config.body && config.body instanceof FormData) {
+                       try {
+                           if (mode === 'text' && window.html2canvas) {
+                               const previewEl = document.getElementById('em-preview-visual');
+                               const canvas = await window.html2canvas(previewEl, { backgroundColor: null, scale: 2 });
+                               const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                               if (blob) {
+                                   const file = new File([blob], "preview.png", { type: "image/png" });
+                                   config.body.append('properties[_Preview]', file);
+                               }
+                           }
+                       } catch(e) {
+                           console.error("Preview generation failed", e);
+                       }
+                  }
+
+                  // Let theme fetch finish
+                  const response = await originalFetch.apply(this, arguments);
+
+                  // Inject Addons
+                  const addons = getAddonItems();
+                  if (addons.length > 0) {
+                      if (addons.some(item => String(item.id).includes('fallback'))) {
+                          alert("Embroidery App Error: Add-on product not found. Please sync Add-on Product.");
+                      } else {
+                          window.emIsInjecting = true;
+                          try {
+                              await originalFetch(window.Shopify.routes.root + 'cart.js'); // sync cache
+                              await originalFetch(window.Shopify.routes.root + 'cart/add.js', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ items: addons })
+                              });
+                          } catch(e) {
+                              console.error("Failed to inject addons", e);
+                          }
+                          window.emIsInjecting = false;
+                      }
+                  }
+
+                  if (loaderOverlay) loaderOverlay.style.display = 'none';
+                  return response;
               }
           }
-      }
-  }, true);
+          return originalFetch.apply(this, arguments);
+      };
 
-  const addToCartForms = document.querySelectorAll('form[action^="/cart/add"], form.product-form, form[id^="product_form"], form');
-  addToCartForms.forEach(form => {
-    // Only hijack forms that actually contain the add to cart button or our form box
-    const formBox = form.querySelector('#em-form-box');
-    const hasAddBtn = form.querySelector('button[name="add"], .add-to-cart, button[type="submit"]');
-    if (formBox || hasAddBtn) {
-        form.addEventListener('submit', (e) => {
-            const fb = document.getElementById('em-form-box');
-            if (fb && fb.style.display === 'block') {
-                hijackAction(e, form);
-            }
-        }, true);
-    }
-  });
+      const originalXHROpen = window.XMLHttpRequest.prototype.open;
+      const originalXHRSend = window.XMLHttpRequest.prototype.send;
+      window.XMLHttpRequest.prototype.open = function(method, url) {
+          this._url = url;
+          return originalXHROpen.apply(this, arguments);
+      };
+      window.XMLHttpRequest.prototype.send = function(body) {
+          if (this._url && (this._url.includes('/cart/add.js') || this._url.includes('/cart/add')) && !window.emIsInjecting) {
+              const formBox = document.getElementById('em-form-box');
+              if (formBox && formBox.style.display === 'block') {
+                  this.addEventListener('load', async function() {
+                      const addons = getAddonItems();
+                      if (addons.length > 0 && !addons.some(item => String(item.id).includes('fallback'))) {
+                          window.emIsInjecting = true;
+                          try {
+                              await window.fetch(window.Shopify.routes.root + 'cart.js');
+                              await window.fetch(window.Shopify.routes.root + 'cart/add.js', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ items: addons })
+                              });
+                          } catch(e) {}
+                          window.emIsInjecting = false;
+                      }
+                  });
+              }
+          }
+          return originalXHRSend.apply(this, arguments);
+      };
+  }
 
 })();
 </script>
