@@ -1309,46 +1309,35 @@
            return;
         }
 
-        const finalFormData = new FormData();
-        
-        // Add Main Product
-        finalFormData.append('items[0][id]', mainVariantId);
-        finalFormData.append('items[0][quantity]', baseQty);
-        for (const [k, v] of Object.entries(properties)) {
-            finalFormData.append(`items[0][properties][${k}]`, v);
-        }
-
-        // Add Add-ons
-        itemsToAdd.forEach((addon, index) => {
-            let i = index + 1;
-            finalFormData.append(`items[${i}][id]`, addon.id);
-            finalFormData.append(`items[${i}][quantity]`, addon.quantity);
-            for (const [k, v] of Object.entries(addon.properties)) {
-                finalFormData.append(`items[${i}][properties][${k}]`, v);
-            }
-        });
-
         try {
-           const res = await fetch(window.Shopify.routes.root + 'cart/add.js', {
-             method: 'POST',
-             body: finalFormData
+           // 1. Add Main Product (with File uploads from the original form)
+           const mainRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
+               method: 'POST',
+               body: formData
            });
            
-           const resData = await res.json();
+           if (!mainRes.ok) {
+              const resData = await mainRes.json();
+              throw new Error("Failed to add main product: " + (resData.description || resData.message));
+           }
+
+           // 2. Add Add-ons (using JSON format which reliably supports multiple items)
+           const addonRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ items: itemsToAdd })
+           });
            
-           if (!res.ok) {
-              console.error("Cart add error:", resData);
-              alert("Failed to add items to cart: " + (resData.description || resData.message));
-              isSubmitting = false;
-              if (loaderOverlay) loaderOverlay.style.display = 'none';
-              return;
+           if (!addonRes.ok) {
+              const resData = await addonRes.json();
+              throw new Error("Failed to add frames: " + (resData.description || resData.message));
            }
            
            // Success! Redirect to cart page
            window.location.href = window.Shopify.routes.root + 'cart';
         } catch(err) {
           console.error("Failed to add items", err);
-          alert("Network error. Please try again.");
+          alert(err.message || "Network error. Please try again.");
           isSubmitting = false;
           if (loaderOverlay) loaderOverlay.style.display = 'none';
         }
