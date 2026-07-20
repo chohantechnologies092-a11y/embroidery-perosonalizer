@@ -645,7 +645,7 @@
     ];
   }
 
-  // Populate Frame Sizes
+  // Populate Frame Sizes - store variantId directly in option
   frameConfig.forEach(frame => {
     const opt = document.createElement('option');
     opt.value = frame.name;
@@ -654,6 +654,25 @@
     opt.innerText = `${frame.name} - Max ${maxL} Letters (+£${formattedPrice})`;
     opt.dataset.maxLetters = maxL;
     opt.dataset.price = frame.price;
+    
+    // Try to match variant at population time and store ID directly
+    const matchedVariant = addonVariants.find(v =>
+      v.title && v.title.toLowerCase().includes(frame.name.toLowerCase().trim())
+    );
+    if (matchedVariant) {
+      opt.dataset.variantId = matchedVariant.id;
+    } else {
+      // If no name match, try index-based fallback
+      const idx = frameConfig.indexOf(frame);
+      const textVariants = addonVariants.filter(v => !v.title.toLowerCase().includes('image'));
+      if (textVariants[idx]) {
+        opt.dataset.variantId = textVariants[idx].id;
+        console.log('[EM] Frame "' + frame.name + '" matched by index to variant:', textVariants[idx].title);
+      } else {
+        console.warn('[EM] No variant found for frame:', frame.name, 'All variants:', addonVariants.map(v => v.title));
+      }
+    }
+    
     frameSizeSelect.appendChild(opt);
     if (frameSizeSelect2) frameSizeSelect2.appendChild(opt.cloneNode(true));
     if (frameSizeSelect3) frameSizeSelect3.appendChild(opt.cloneNode(true));
@@ -1269,7 +1288,7 @@
           return;
         }
 
-        // Step 4: Build addon items (frames)
+        // Step 4: Build addon items (frames) using stored variantId from dataset
         let addons = [];
         if (mode === 'text') {
           const selects = [
@@ -1281,23 +1300,37 @@
             const sel = selects[i];
             if (sel.el && sel.el.selectedIndex > 0) {
               const opt = sel.el.options[sel.el.selectedIndex];
+              const directVariantId = opt.dataset.variantId;
               const variantTitle = opt.value;
-              const matchingVariant = addonVariants.find(v =>
-                v.title && v.title.toLowerCase().includes(variantTitle.toLowerCase().trim())
-              );
-              if (matchingVariant) {
-                const existing = addons.find(a => a.id === matchingVariant.id);
+              
+              let resolvedId = null;
+              if (directVariantId) {
+                // Best case: use directly stored ID
+                resolvedId = directVariantId;
+              } else {
+                // Fallback: try string matching
+                const matchingVariant = addonVariants.find(v =>
+                  v.title && v.title.toLowerCase().includes(variantTitle.toLowerCase().trim())
+                );
+                if (matchingVariant) {
+                  resolvedId = matchingVariant.id;
+                }
+              }
+              
+              if (resolvedId) {
+                const existing = addons.find(a => a.id === resolvedId);
                 if (existing) {
                   existing.quantity += qty;
                 } else {
                   addons.push({
-                    id: matchingVariant.id,
+                    id: parseInt(resolvedId),
                     quantity: qty,
-                    properties: { 'For_Product': 'Embroidery - ' + sel.line }
+                    properties: { 'For_Product': 'Embroidery - ' + sel.line + ' (' + variantTitle + ')' }
                   });
                 }
               } else {
-                console.warn('[EM] No addon variant found for:', variantTitle, 'Available:', addonVariants.map(v => v.title));
+                console.warn('[EM] Could not find variant for frame:', variantTitle);
+                console.log('[EM] addonVariants:', JSON.stringify(addonVariants.map(v => ({id: v.id, title: v.title}))));
               }
             }
           }
