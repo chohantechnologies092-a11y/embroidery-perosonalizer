@@ -1264,7 +1264,9 @@
 
           if (isCartAdd && !window.emIsInjecting) {
               const formBox = document.getElementById('em-form-box');
-              if (formBox && formBox.style.display === 'block') {
+              const addons = getAddonItems();
+              
+              if (formBox && addons.length > 0) {
                   
                   const loaderOverlay = document.getElementById('em-loader-overlay');
                   if (loaderOverlay) {
@@ -1293,28 +1295,25 @@
                   const response = await originalFetch.apply(this, arguments);
 
                   // Inject Addons
-                  const addons = getAddonItems();
-                  if (addons.length > 0) {
-                      if (addons.some(item => String(item.id).includes('fallback'))) {
-                          alert("Embroidery App Error: Add-on product not found. Please sync Add-on Product.");
-                      } else {
-                          window.emIsInjecting = true;
-                          try {
-                              await originalFetch(window.Shopify.routes.root + 'cart.js'); // sync cache
-                              const addonRes = await originalFetch(window.Shopify.routes.root + 'cart/add.js', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ items: addons })
-                              });
-                              if (addonRes.ok) {
-                                  window.location.href = window.Shopify.routes.root + 'cart';
-                                  return new Promise(() => {}); // Stop execution
-                              }
-                          } catch(e) {
-                              console.error("Failed to inject addons", e);
+                  if (addons.some(item => String(item.id).includes('fallback'))) {
+                      alert("Embroidery App Error: Add-on product not found. Please sync Add-on Product.");
+                  } else {
+                      window.emIsInjecting = true;
+                      try {
+                          await originalFetch(window.Shopify.routes.root + 'cart.js'); // sync cache
+                          const addonRes = await originalFetch(window.Shopify.routes.root + 'cart/add.js', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ items: addons })
+                          });
+                          if (addonRes.ok) {
+                              window.location.href = window.Shopify.routes.root + 'cart';
+                              return new Promise(() => {}); // Stop execution
                           }
-                          window.emIsInjecting = false;
+                      } catch(e) {
+                          console.error("Failed to inject addons", e);
                       }
+                      window.emIsInjecting = false;
                   }
 
                   if (loaderOverlay) loaderOverlay.style.display = 'none';
@@ -1334,18 +1333,21 @@
       window.XMLHttpRequest.prototype.send = function(body) {
           if (this._url && (this._url.includes('/cart/add.js') || this._url.includes('/cart/add')) && !window.emIsInjecting) {
               const formBox = document.getElementById('em-form-box');
-              if (formBox && formBox.style.display === 'block') {
+              const addons = getAddonItems();
+              if (formBox && addons.length > 0) {
                   this.addEventListener('load', async function() {
-                      const addons = getAddonItems();
-                      if (addons.length > 0 && !addons.some(item => String(item.id).includes('fallback'))) {
+                      if (!addons.some(item => String(item.id).includes('fallback'))) {
                           window.emIsInjecting = true;
                           try {
                               await window.fetch(window.Shopify.routes.root + 'cart.js');
-                              await window.fetch(window.Shopify.routes.root + 'cart/add.js', {
+                              const addonRes = await window.fetch(window.Shopify.routes.root + 'cart/add.js', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ items: addons })
                               });
+                              if (addonRes.ok) {
+                                  window.location.href = window.Shopify.routes.root + 'cart';
+                              }
                           } catch(e) {}
                           window.emIsInjecting = false;
                       }
