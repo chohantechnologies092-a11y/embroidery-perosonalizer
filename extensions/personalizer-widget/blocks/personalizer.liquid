@@ -385,6 +385,24 @@
 
   <!-- Hidden Fields for Cart -->
   <input type="hidden" name="properties[Personalization_Details]" id="em-cart-properties" form="product-form-{{ section.id }}">
+
+  <!-- Our Own Add to Cart Button -->
+  <button type="button" id="em-add-to-cart-btn" style="
+    display: none;
+    width: 100%;
+    margin-top: 15px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #000 0%, #333 100%);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  ">🛒 Add to Cart with Embroidery</button>
 </div>
 
 <script>
@@ -488,13 +506,14 @@
       formBox.style.display = 'none';
       btnExpand.classList.remove('is-open');
       document.getElementById('em-app-root').classList.remove('is-active');
+      document.getElementById('em-add-to-cart-btn').style.display = 'none';
     } else {
       formBox.style.display = 'block';
       btnExpand.classList.add('is-open');
       document.getElementById('em-app-root').classList.add('is-active');
+      document.getElementById('em-add-to-cart-btn').style.display = 'block';
       setupPreviewOverlay(productConfig);
       updatePreview();
-      installCartInterceptor(); // Install interceptor when user opens personalizer
     }
   };
 
@@ -1206,116 +1225,115 @@
   };
 
   // ============================================================
-  // CART INTERCEPTOR - Installs when user opens the personalizer
+  // OUR OWN ADD TO CART BUTTON - No theme interception needed!
   // ============================================================
-  function installCartInterceptor() {
-    if (window.emInterceptorInstalled) return;
-    window.emInterceptorInstalled = true;
-    console.log('[EM] Cart interceptor installed!');
+  const emAddToCartBtn = document.getElementById('em-add-to-cart-btn');
+  if (emAddToCartBtn) {
+    emAddToCartBtn.addEventListener('click', async function() {
+      emAddToCartBtn.disabled = true;
+      emAddToCartBtn.textContent = 'Adding...';
 
-    function getAddonItems() {
-      let itemsToAdd = [];
-      const qtyInput = document.querySelector('input[name="quantity"], .quantity__input, [name="quantity"]');
-      const baseQty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
-
-      if (mode === 'text') {
-        const selects = [
-          { el: frameSizeSelect, line: 'Line 1' },
-          { el: frameSizeSelect2, line: 'Line 2' },
-          { el: frameSizeSelect3, line: 'Line 3' }
-        ];
-        for (let i = 0; i < activeLines; i++) {
-          const sel = selects[i];
-          if (sel.el && sel.el.selectedIndex > 0) {
-            const opt = sel.el.options[sel.el.selectedIndex];
-            const variantTitle = opt.value;
-            const matchingVariant = addonVariants.find(v =>
-              v.title && v.title.toLowerCase().includes(variantTitle.toLowerCase().trim())
-            );
-            if (matchingVariant) {
-              const existing = itemsToAdd.find(i => i.id === matchingVariant.id);
-              if (existing) {
-                existing.quantity += baseQty;
-              } else {
-                itemsToAdd.push({
-                  id: matchingVariant.id,
-                  quantity: baseQty,
-                  properties: { 'For_Product': 'Embroidery - ' + sel.line }
-                });
-              }
-            } else {
-              console.warn('[EM] No variant found for frame:', variantTitle, 'Available:', addonVariants.map(v => v.title));
-            }
-          }
-        }
-      } else if (mode === 'image' && imageVariantId) {
-        itemsToAdd.push({
-          id: imageVariantId,
-          quantity: baseQty,
-          properties: { 'For_Product': 'Image Embroidery' }
-        });
+      const loaderOverlay = document.getElementById('em-loader-overlay');
+      if (loaderOverlay) {
+        loaderOverlay.style.display = 'flex';
+        loaderOverlay.innerHTML = '<div class="em-spinner"></div><div class="em-loader-text">Adding to cart...</div>';
       }
-      console.log('[EM] Addon items to add:', itemsToAdd);
-      return itemsToAdd;
-    }
 
-    async function addAddonsToCart() {
-      const addons = getAddonItems();
-      if (addons.length === 0) {
-        console.log('[EM] No addons to add (no frame selected)');
-        return;
-      }
-      console.log('[EM] Adding addons to cart:', addons);
       try {
-        const res = await fetch('/cart/add.js', {
+        // Step 1: Get the main product variant
+        const variantId = {{ product.selected_or_first_available_variant.id | json }};
+        const qtyInput = document.querySelector('input[name="quantity"], .quantity__input');
+        const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+
+        // Step 2: Build line properties from widget
+        const cartPropsEl = document.getElementById('em-cart-properties');
+        const lineProperties = {};
+        if (cartPropsEl && cartPropsEl.value) {
+          lineProperties['Personalization_Details'] = cartPropsEl.value;
+        }
+
+        // Step 3: Add the main product to cart
+        const mainRes = await fetch('/cart/add.js', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: addons })
+          body: JSON.stringify({
+            id: variantId,
+            quantity: qty,
+            properties: lineProperties
+          })
         });
-        const data = await res.json();
-        console.log('[EM] Addons added successfully:', data);
+
+        if (!mainRes.ok) {
+          const err = await mainRes.json();
+          alert('Error adding product: ' + (err.description || 'Please try again'));
+          return;
+        }
+
+        // Step 4: Build addon items (frames)
+        let addons = [];
+        if (mode === 'text') {
+          const selects = [
+            { el: frameSizeSelect, line: 'Line 1' },
+            { el: frameSizeSelect2, line: 'Line 2' },
+            { el: frameSizeSelect3, line: 'Line 3' }
+          ];
+          for (let i = 0; i < activeLines; i++) {
+            const sel = selects[i];
+            if (sel.el && sel.el.selectedIndex > 0) {
+              const opt = sel.el.options[sel.el.selectedIndex];
+              const variantTitle = opt.value;
+              const matchingVariant = addonVariants.find(v =>
+                v.title && v.title.toLowerCase().includes(variantTitle.toLowerCase().trim())
+              );
+              if (matchingVariant) {
+                const existing = addons.find(a => a.id === matchingVariant.id);
+                if (existing) {
+                  existing.quantity += qty;
+                } else {
+                  addons.push({
+                    id: matchingVariant.id,
+                    quantity: qty,
+                    properties: { 'For_Product': 'Embroidery - ' + sel.line }
+                  });
+                }
+              } else {
+                console.warn('[EM] No addon variant found for:', variantTitle, 'Available:', addonVariants.map(v => v.title));
+              }
+            }
+          }
+        } else if (mode === 'image' && imageVariantId) {
+          addons.push({
+            id: imageVariantId,
+            quantity: qty,
+            properties: { 'For_Product': 'Image Embroidery' }
+          });
+        }
+
+        // Step 5: Add addon frames to cart
+        if (addons.length > 0) {
+          const addonRes = await fetch('/cart/add.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: addons })
+          });
+          if (!addonRes.ok) {
+            console.error('[EM] Failed to add addon frames:', await addonRes.json());
+          }
+        }
+
+        // Step 6: Redirect to cart
+        window.location.href = '/cart';
+
       } catch(e) {
-        console.error('[EM] Failed to add addons:', e);
+        console.error('[EM] Error:', e);
+        alert('Something went wrong. Please try again.');
+      } finally {
+        if (loaderOverlay) loaderOverlay.style.display = 'none';
+        emAddToCartBtn.disabled = false;
+        emAddToCartBtn.textContent = '🛒 Add to Cart with Embroidery';
       }
-    }
-
-    // Intercept fetch
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-      let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-      const isCartAdd = url.includes('/cart/add');
-
-      if (isCartAdd && !window.emIsInjecting) {
-        console.log('[EM] Intercepted fetch cart/add!');
-        window.emIsInjecting = true;
-        const response = await originalFetch.apply(this, args);
-        await addAddonsToCart();
-        window.emIsInjecting = false;
-        return response;
-      }
-      return originalFetch.apply(this, args);
-    };
-
-    // Also intercept XHR
-    const origXHROpen = XMLHttpRequest.prototype.open;
-    const origXHRSend = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.open = function(m, url) {
-      this._emUrl = url;
-      return origXHROpen.apply(this, arguments);
-    };
-    XMLHttpRequest.prototype.send = function() {
-      if (this._emUrl && this._emUrl.includes('/cart/add') && !window.emIsInjecting) {
-        console.log('[EM] Intercepted XHR cart/add!');
-        this.addEventListener('load', async function() {
-          window.emIsInjecting = true;
-          await addAddonsToCart();
-          window.emIsInjecting = false;
-        });
-      }
-      return origXHRSend.apply(this, arguments);
-    };
+    });
   }
-
 
 })();
 </script>
