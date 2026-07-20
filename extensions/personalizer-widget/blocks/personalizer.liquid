@@ -1333,7 +1333,7 @@
       const btn = e.target.closest('button[type="submit"], button[name="add"], .add-to-cart, .product-form__submit');
       if (btn) {
           const formId = btn.getAttribute('form');
-          const form = formId ? document.getElementById(formId) : btn.closest('form[action^="/cart/add"]');
+          const form = formId ? document.getElementById(formId) : btn.closest('form');
           if (form) {
               const formBox = document.getElementById('em-form-box');
               if (formBox && formBox.style.display === 'block') {
@@ -1343,14 +1343,19 @@
       }
   }, true);
 
-  const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
+  const addToCartForms = document.querySelectorAll('form[action^="/cart/add"], form.product-form, form[id^="product_form"], form');
   addToCartForms.forEach(form => {
-    form.addEventListener('submit', (e) => {
-        const formBox = document.getElementById('em-form-box');
-        if (formBox && formBox.style.display === 'block') {
-            hijackAction(e, form);
-        }
-    }, true);
+    // Only hijack forms that actually contain the add to cart button or our form box
+    const formBox = form.querySelector('#em-form-box');
+    const hasAddBtn = form.querySelector('button[name="add"], .add-to-cart, button[type="submit"]');
+    if (formBox || hasAddBtn) {
+        form.addEventListener('submit', (e) => {
+            const fb = document.getElementById('em-form-box');
+            if (fb && fb.style.display === 'block') {
+                hijackAction(e, form);
+            }
+        }, true);
+    }
   });
 
 })();
