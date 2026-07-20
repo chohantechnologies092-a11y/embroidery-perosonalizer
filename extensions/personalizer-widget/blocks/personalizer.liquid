@@ -411,7 +411,20 @@
   const productId = '{{ product.id }}';
   let addonVariants = [];
   let imageVariantId = null;
-  let activeColors = [{ name: "Black", hex: "#000000" }];
+  let activeColors = [
+    { name: "Black", hex: "#000000" },
+    { name: "White", hex: "#FFFFFF" },
+    { name: "Red", hex: "#CC0000" },
+    { name: "Navy Blue", hex: "#001F5B" },
+    { name: "Royal Blue", hex: "#4169E1" },
+    { name: "Sky Blue", hex: "#87CEEB" },
+    { name: "Green", hex: "#2E7D32" },
+    { name: "Gold", hex: "#FFD700" },
+    { name: "Silver", hex: "#C0C0C0" },
+    { name: "Pink", hex: "#FF69B4" },
+    { name: "Purple", hex: "#6A0DAD" },
+    { name: "Orange", hex: "#FF6600" }
+  ];
   let activeFonts = ["Arial", "Great Vibes", "Pacifico", "Dancing Script", "Lobster", "Alex Brush", "Parisienne", "Sacramento", "Cookie", "Charm"];
   let frameConfig = [];
 
@@ -1264,17 +1277,6 @@
         const qtyInput = document.querySelector('input[name="quantity"], .quantity__input');
         const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
 
-        // DEBUG: Show what we found
-        console.log('[EM DEBUG] addonVariants:', JSON.stringify(addonVariants));
-        console.log('[EM DEBUG] frameSizeSelect value:', frameSizeSelect ? frameSizeSelect.value : 'N/A');
-        console.log('[EM DEBUG] frameSizeSelect selectedIndex:', frameSizeSelect ? frameSizeSelect.selectedIndex : 'N/A');
-        if (frameSizeSelect && frameSizeSelect.selectedIndex > 0) {
-          const selectedOpt = frameSizeSelect.options[frameSizeSelect.selectedIndex];
-          console.log('[EM DEBUG] Selected option value:', selectedOpt.value, 'variantId in dataset:', selectedOpt.dataset.variantId);
-        }
-        console.log('[EM DEBUG] mode:', mode, 'activeLines:', activeLines);
-
-
         // Step 2: Build line properties from widget
         const cartPropsEl = document.getElementById('em-cart-properties');
         const lineProperties = {};
@@ -1298,21 +1300,6 @@
           alert('Error adding product: ' + (err.description || 'Please try again'));
           return;
         }
-
-        // DIAGNOSTIC: Show what variants are available
-        const frameVal = frameSizeSelect ? frameSizeSelect.value : 'none';
-        const frameIdx = frameSizeSelect ? frameSizeSelect.selectedIndex : -1;
-        const frameDatasetId = (frameSizeSelect && frameIdx > 0) ? frameSizeSelect.options[frameIdx].dataset.variantId : 'none';
-        const variantTitles = addonVariants.map(v => v.id + ':' + v.title).join('\n');
-        alert(
-          'DEBUG INFO (remove later):\n\n' +
-          'Frame selected: ' + frameVal + '\n' +
-          'Frame dataset variantId: ' + frameDatasetId + '\n' +
-          'addonVariants count: ' + addonVariants.length + '\n' +
-          'Variants:\n' + (variantTitles || 'EMPTY - No variants!') + '\n\n' +
-          'mode: ' + mode + ', activeLines: ' + activeLines
-        );
-
 
         // Step 4: Build addon items (frames) using stored variantId from dataset
         let addons = [];
@@ -1375,23 +1362,13 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items: addons })
           });
-          const addonData = await addonRes.json();
           if (!addonRes.ok) {
-            alert('Addon add FAILED!\nError: ' + JSON.stringify(addonData));
-          } else {
-            // Verify cart contents
-            const cartRes = await fetch('/cart.js');
-            const cartData = await cartRes.json();
-            const itemSummary = cartData.items.map(i => i.title + ' x' + i.quantity + ' = £' + (i.line_price/100).toFixed(2)).join('\n');
-            alert('Cart contents:\n' + itemSummary + '\n\nTotal: £' + (cartData.total_price/100).toFixed(2));
+            console.error('[EM] Failed to add addon frames');
           }
-        } else {
-          alert('NO ADDONS BUILT! addons array is empty. Frame selected: ' + (frameSizeSelect ? frameSizeSelect.value : 'none') + ' selectedIndex: ' + (frameSizeSelect ? frameSizeSelect.selectedIndex : -1));
         }
 
         // Step 6: Redirect to cart
         window.location.href = '/cart';
-
 
       } catch(e) {
         console.error('[EM] Error:', e);
