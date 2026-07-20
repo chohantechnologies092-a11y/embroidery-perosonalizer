@@ -1264,6 +1264,17 @@
         const qtyInput = document.querySelector('input[name="quantity"], .quantity__input');
         const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
 
+        // DEBUG: Show what we found
+        console.log('[EM DEBUG] addonVariants:', JSON.stringify(addonVariants));
+        console.log('[EM DEBUG] frameSizeSelect value:', frameSizeSelect ? frameSizeSelect.value : 'N/A');
+        console.log('[EM DEBUG] frameSizeSelect selectedIndex:', frameSizeSelect ? frameSizeSelect.selectedIndex : 'N/A');
+        if (frameSizeSelect && frameSizeSelect.selectedIndex > 0) {
+          const selectedOpt = frameSizeSelect.options[frameSizeSelect.selectedIndex];
+          console.log('[EM DEBUG] Selected option value:', selectedOpt.value, 'variantId in dataset:', selectedOpt.dataset.variantId);
+        }
+        console.log('[EM DEBUG] mode:', mode, 'activeLines:', activeLines);
+
+
         // Step 2: Build line properties from widget
         const cartPropsEl = document.getElementById('em-cart-properties');
         const lineProperties = {};
