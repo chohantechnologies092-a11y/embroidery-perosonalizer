@@ -1287,18 +1287,38 @@
       }
 
       if (itemsToAdd.length > 0) {
+        // Check for fallback IDs
+        const hasFallback = itemsToAdd.some(item => String(item.id).includes('fallback'));
+        if (hasFallback) {
+           alert("Embroidery App Error: Add-on product not found. Please go to the App Settings and click 'Sync Add-on Product'.");
+           isSubmitting = false;
+           if (loaderOverlay) loaderOverlay.style.display = 'none';
+           return;
+        }
+
         try {
            // 1. Add the add-on products first
-           await fetch(window.Shopify.routes.root + 'cart/add.js', {
+           const res = await fetch(window.Shopify.routes.root + 'cart/add.js', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ items: itemsToAdd })
            });
            
+           const resData = await res.json();
+           
+           if (!res.ok) {
+              console.error("Cart add error:", resData);
+              alert("Failed to add frame to cart: " + (resData.description || resData.message));
+              isSubmitting = false;
+              if (loaderOverlay) loaderOverlay.style.display = 'none';
+              return;
+           }
+           
            // 2. Submit the main form normally so file uploads work
            form.submit();
         } catch(err) {
           console.error("Failed to add addons", err);
+          alert("Network error while adding frames. Please try again.");
           isSubmitting = false;
           if (loaderOverlay) loaderOverlay.style.display = 'none';
         }
