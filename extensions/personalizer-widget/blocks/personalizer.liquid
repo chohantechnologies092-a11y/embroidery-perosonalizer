@@ -494,6 +494,7 @@
       document.getElementById('em-app-root').classList.add('is-active');
       setupPreviewOverlay(productConfig);
       updatePreview();
+      installCartInterceptor(); // Install interceptor when user opens personalizer
     }
   };
 
@@ -1204,159 +1205,117 @@
     });
   };
 
-    // Global Network Interceptor (100% foolproof for ANY Shopify theme)
-    if (!window.emInterceptorInstalled) {
-      window.emInterceptorInstalled = true;
+  // ============================================================
+  // CART INTERCEPTOR - Installs when user opens the personalizer
+  // ============================================================
+  function installCartInterceptor() {
+    if (window.emInterceptorInstalled) return;
+    window.emInterceptorInstalled = true;
+    console.log('[EM] Cart interceptor installed!');
 
-      const getAddonItems = () => {
-          let itemsToAdd = [];
-          const qtyInput = document.querySelector('input[name="quantity"]');
-          const baseQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+    function getAddonItems() {
+      let itemsToAdd = [];
+      const qtyInput = document.querySelector('input[name="quantity"], .quantity__input, [name="quantity"]');
+      const baseQty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
 
-          if (mode === 'text') {
-            let selectedFrames = [];
-            if (activeLines >= 1 && frameSizeSelect && frameSizeSelect.value) selectedFrames.push({ name: frameSizeSelect.value, line: "Line 1" });
-            if (activeLines >= 2 && frameSizeSelect2 && frameSizeSelect2.value) selectedFrames.push({ name: frameSizeSelect2.value, line: "Line 2" });
-            if (activeLines >= 3 && frameSizeSelect3 && frameSizeSelect3.value) selectedFrames.push({ name: frameSizeSelect3.value, line: "Line 3" });
-
-            selectedFrames.forEach(frame => {
-               const matchingVariant = addonVariants.find(v => v.title && v.title.toLowerCase().includes(frame.name.toLowerCase().trim()));
-               if (matchingVariant) {
-                  let existing = itemsToAdd.find(i => i.id === matchingVariant.id);
-                  if (existing) {
-                     existing.quantity += parseInt(baseQty);
-                     existing.properties["For_Product"] += `, ${frame.line}`;
-                  } else {
-                     itemsToAdd.push({
-                       id: matchingVariant.id,
-                       quantity: parseInt(baseQty),
-                       properties: { "For_Product": "Attached to: " + frame.line }
-                     });
-                  }
-               } else {
-                  alert("Embroidery App Error: Could not find variant matching '" + frame.name + "'.");
-               }
-            });
-          } else if (mode === 'image' && imageVariantId) {
-            itemsToAdd.push({
-               id: imageVariantId,
-               quantity: parseInt(baseQty),
-               properties: { "For_Product": "Image Customization" }
-            });
-          }
-          return itemsToAdd;
-      };
-
-      const originalFetch = window.fetch;
-      window.fetch = async function() {
-          let url = arguments[0];
-          let config = arguments[1];
-          let isCartAdd = false;
-          if (typeof url === 'string') {
-              isCartAdd = url.includes('/cart/add.js') || url.includes('/cart/add');
-          } else if (url && typeof url.url === 'string') {
-              isCartAdd = url.url.includes('/cart/add.js') || url.url.includes('/cart/add');
-          }
-
-          if (isCartAdd && window.emIsInjecting) {
-              return originalFetch.apply(this, arguments);
-          }
-
-          if (isCartAdd && !window.emIsInjecting) {
-              const formBox = document.getElementById('em-form-box');
-              const addons = getAddonItems();
-              
-              if (formBox && addons.length > 0) {
-                  
-                  const loaderOverlay = document.getElementById('em-loader-overlay');
-                  if (loaderOverlay) {
-                      loaderOverlay.style.display = 'flex';
-                      loaderOverlay.innerHTML = '<div style="color:white; font-size:18px; text-align:center;">Adding personalization...<br><small>Please wait</small></div>';
-                  }
-
-                  // Inject html2canvas into FormData if applicable
-                  if (config && config.body && config.body instanceof FormData) {
-                       try {
-                           if (mode === 'text' && window.html2canvas) {
-                               const previewEl = document.getElementById('em-preview-visual');
-                               const canvas = await window.html2canvas(previewEl, { backgroundColor: null, scale: 2 });
-                               const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-                               if (blob) {
-                                   const file = new File([blob], "preview.png", { type: "image/png" });
-                                   config.body.append('properties[_Preview]', file);
-                               }
-                           }
-                       } catch(e) {
-                           console.error("Preview generation failed", e);
-                       }
-                  }
-
-                  // Let theme fetch finish
-                  const response = await originalFetch.apply(this, arguments);
-
-                  // Inject Addons
-                  if (addons.some(item => String(item.id).includes('fallback'))) {
-                      alert("Embroidery App Error: Add-on product not found. Please sync Add-on Product.");
-                  } else {
-                      window.emIsInjecting = true;
-                      try {
-                          await originalFetch(window.Shopify.routes.root + 'cart.js'); // sync cache
-                          const addonRes = await originalFetch(window.Shopify.routes.root + 'cart/add.js', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ items: addons })
-                          });
-                          if (addonRes.ok) {
-                              window.location.href = window.Shopify.routes.root + 'cart';
-                              return new Promise(() => {}); // Stop execution
-                          }
-                      } catch(e) {
-                          console.error("Failed to inject addons", e);
-                      }
-                      window.emIsInjecting = false;
-                  }
-
-                  if (loaderOverlay) loaderOverlay.style.display = 'none';
-                  return response;
+      if (mode === 'text') {
+        const selects = [
+          { el: frameSizeSelect, line: 'Line 1' },
+          { el: frameSizeSelect2, line: 'Line 2' },
+          { el: frameSizeSelect3, line: 'Line 3' }
+        ];
+        for (let i = 0; i < activeLines; i++) {
+          const sel = selects[i];
+          if (sel.el && sel.el.selectedIndex > 0) {
+            const opt = sel.el.options[sel.el.selectedIndex];
+            const variantTitle = opt.value;
+            const matchingVariant = addonVariants.find(v =>
+              v.title && v.title.toLowerCase().includes(variantTitle.toLowerCase().trim())
+            );
+            if (matchingVariant) {
+              const existing = itemsToAdd.find(i => i.id === matchingVariant.id);
+              if (existing) {
+                existing.quantity += baseQty;
+              } else {
+                itemsToAdd.push({
+                  id: matchingVariant.id,
+                  quantity: baseQty,
+                  properties: { 'For_Product': 'Embroidery - ' + sel.line }
+                });
               }
+            } else {
+              console.warn('[EM] No variant found for frame:', variantTitle, 'Available:', addonVariants.map(v => v.title));
+            }
           }
-          return originalFetch.apply(this, arguments);
-      };
+        }
+      } else if (mode === 'image' && imageVariantId) {
+        itemsToAdd.push({
+          id: imageVariantId,
+          quantity: baseQty,
+          properties: { 'For_Product': 'Image Embroidery' }
+        });
+      }
+      console.log('[EM] Addon items to add:', itemsToAdd);
+      return itemsToAdd;
+    }
 
+    async function addAddonsToCart() {
+      const addons = getAddonItems();
+      if (addons.length === 0) {
+        console.log('[EM] No addons to add (no frame selected)');
+        return;
+      }
+      console.log('[EM] Adding addons to cart:', addons);
+      try {
+        const res = await fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: addons })
+        });
+        const data = await res.json();
+        console.log('[EM] Addons added successfully:', data);
+      } catch(e) {
+        console.error('[EM] Failed to add addons:', e);
+      }
+    }
 
-      const originalXHROpen = window.XMLHttpRequest.prototype.open;
-      const originalXHRSend = window.XMLHttpRequest.prototype.send;
-      window.XMLHttpRequest.prototype.open = function(method, url) {
-          this._url = url;
-          return originalXHROpen.apply(this, arguments);
-      };
-      window.XMLHttpRequest.prototype.send = function(body) {
-          if (this._url && (this._url.includes('/cart/add.js') || this._url.includes('/cart/add')) && !window.emIsInjecting) {
-              const formBox = document.getElementById('em-form-box');
-              const addons = getAddonItems();
-              if (formBox && addons.length > 0) {
-                  this.addEventListener('load', async function() {
-                      if (!addons.some(item => String(item.id).includes('fallback'))) {
-                          window.emIsInjecting = true;
-                          try {
-                              await window.fetch(window.Shopify.routes.root + 'cart.js');
-                              const addonRes = await window.fetch(window.Shopify.routes.root + 'cart/add.js', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ items: addons })
-                              });
-                              if (addonRes.ok) {
-                                  window.location.href = window.Shopify.routes.root + 'cart';
-                              }
-                          } catch(e) {}
-                          window.emIsInjecting = false;
-                      }
-                  });
-              }
-          }
-          return originalXHRSend.apply(this, arguments);
-      };
+    // Intercept fetch
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+      let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+      const isCartAdd = url.includes('/cart/add');
+
+      if (isCartAdd && !window.emIsInjecting) {
+        console.log('[EM] Intercepted fetch cart/add!');
+        window.emIsInjecting = true;
+        const response = await originalFetch.apply(this, args);
+        await addAddonsToCart();
+        window.emIsInjecting = false;
+        return response;
+      }
+      return originalFetch.apply(this, args);
+    };
+
+    // Also intercept XHR
+    const origXHROpen = XMLHttpRequest.prototype.open;
+    const origXHRSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(m, url) {
+      this._emUrl = url;
+      return origXHROpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function() {
+      if (this._emUrl && this._emUrl.includes('/cart/add') && !window.emIsInjecting) {
+        console.log('[EM] Intercepted XHR cart/add!');
+        this.addEventListener('load', async function() {
+          window.emIsInjecting = true;
+          await addAddonsToCart();
+          window.emIsInjecting = false;
+        });
+      }
+      return origXHRSend.apply(this, arguments);
+    };
   }
+
 
 })();
 </script>
