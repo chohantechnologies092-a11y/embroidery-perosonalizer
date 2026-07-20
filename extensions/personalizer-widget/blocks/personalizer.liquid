@@ -1251,7 +1251,12 @@
       window.fetch = async function() {
           let url = arguments[0];
           let config = arguments[1];
-          let isCartAdd = typeof url === 'string' && (url.includes('/cart/add.js') || url.includes('/cart/add'));
+          let isCartAdd = false;
+          if (typeof url === 'string') {
+              isCartAdd = url.includes('/cart/add.js') || url.includes('/cart/add');
+          } else if (url && typeof url.url === 'string') {
+              isCartAdd = url.url.includes('/cart/add.js') || url.url.includes('/cart/add');
+          }
 
           if (isCartAdd && window.emIsInjecting) {
               return originalFetch.apply(this, arguments);
@@ -1296,11 +1301,15 @@
                           window.emIsInjecting = true;
                           try {
                               await originalFetch(window.Shopify.routes.root + 'cart.js'); // sync cache
-                              await originalFetch(window.Shopify.routes.root + 'cart/add.js', {
+                              const addonRes = await originalFetch(window.Shopify.routes.root + 'cart/add.js', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ items: addons })
                               });
+                              if (addonRes.ok) {
+                                  window.location.href = window.Shopify.routes.root + 'cart';
+                                  return new Promise(() => {}); // Stop execution
+                              }
                           } catch(e) {
                               console.error("Failed to inject addons", e);
                           }
@@ -1314,6 +1323,7 @@
           }
           return originalFetch.apply(this, arguments);
       };
+
 
       const originalXHROpen = window.XMLHttpRequest.prototype.open;
       const originalXHRSend = window.XMLHttpRequest.prototype.send;
