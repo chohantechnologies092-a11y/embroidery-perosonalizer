@@ -885,7 +885,7 @@
           overlay.style.transformOrigin = 'center center';
           
           const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-          const calcSize = exactOverlayHeight * 0.25 * sizeMultiplier;
+          const calcSize = exactOverlayHeight * 0.45 * sizeMultiplier;
           overlay.style.fontSize = calcSize + 'px';
           
           overlay.style.opacity = computedStyle.opacity;
@@ -1078,7 +1078,7 @@
                       overlay.style.transformOrigin = 'center center';
                       
                       const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-                      const calcSize = exactOverlayHeight * 0.25 * sizeMultiplier;
+                      const calcSize = exactOverlayHeight * 0.45 * sizeMultiplier;
                       overlay.style.fontSize = calcSize + 'px';
                       
                       overlay.style.opacity = computedStyle.opacity;
@@ -1203,7 +1203,7 @@
           
           const sizeMultiplier = parseFloat(line.sizeSlider) / 50;
           const baseHeight = overlay.clientHeight;
-          const calcSize = baseHeight * 0.25 * sizeMultiplier;
+          const calcSize = baseHeight * 0.45 * sizeMultiplier;
           span.style.fontSize = calcSize + 'px';
           overlay.appendChild(span);
         });
