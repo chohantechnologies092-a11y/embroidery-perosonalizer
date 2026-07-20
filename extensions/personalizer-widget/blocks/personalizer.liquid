@@ -1215,6 +1215,7 @@
       if (isSubmitting) return; // Allow normal submit
 
       e.preventDefault(); 
+      e.stopImmediatePropagation(); // Prevent theme's AJAX cart from causing a race condition
       isSubmitting = true;
 
       const loaderOverlay = document.getElementById('em-loader-overlay');
@@ -1326,7 +1327,7 @@
         // If no add-on needed or missing, just submit
         form.submit();
       }
-    });
+    }, true);
   });
 
 })();
