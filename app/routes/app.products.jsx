@@ -4,6 +4,7 @@ import {
   useRouteError,
   isRouteErrorResponse,
   useSubmit,
+  useFetcher,
 } from "react-router";
 import { useAppBridge, TitleBar } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -186,21 +187,53 @@ export const action = async ({ request }) => {
 };
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const configs = await prisma.personalizerConfig.findMany({
     where: { shop: session.shop },
     orderBy: { createdAt: "desc" },
   });
+  const query = await admin.graphql(`
+    query { shop { metafield(namespace: "embroidery_app", key: "settings") { value } } }
+  `);
+  const response = await query.json();
+  let shopSettings = null;
 
-  return { configs };
+  if (response.data?.shop?.metafield?.value) {
+    try {
+      shopSettings = JSON.parse(response.data.shop.metafield.value);
+    } catch {}
+  }
+
+  return { configs, shopSettings };
 };
 
 export default function Products() {
-  const { configs } = useLoaderData();
+  const { configs, shopSettings } = useLoaderData();
   const navigate = useNavigate();
   const shopify = useAppBridge();
   const submit = useSubmit();
+  const fetcher = useFetcher();
   const shopDomain = configs.length > 0 ? configs[0].shop : "";
+
+  const handleSyncAll = () => {
+    if (!shopSettings) {
+      shopify.toast.show("Please save Settings first.");
+
+      return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("intent", "setup_addon");
+    formData.append(
+      "frameSizes",
+      JSON.stringify(shopSettings.frameConfig || []),
+    );
+    formData.append("priceImage", shopSettings.priceImage || "3");
+    fetcher.submit(formData, { method: "post", action: "/app/settings" });
+    shopify.toast.show("Syncing Add-on Product to Shopify...");
+  };
+
   const [queryValue, setQueryValue] = useState("");
   const [status, setStatus] = useState(undefined);
   const [mode, setMode] = useState("DEFAULT");
@@ -424,6 +457,7 @@ export default function Products() {
   return (
     <Page>
       <TitleBar title="Personalized Products">
+        <button onClick={handleSyncAll}>Sync Frame Prices</button>
         <button variant="primary" onClick={handleSelectProducts}>
           Add Products
         </button>
