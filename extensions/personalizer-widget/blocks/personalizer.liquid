@@ -1205,9 +1205,6 @@
   };
 
   const hijackAction = async function(e, form) {
-      const formBox = document.getElementById('em-form-box');
-      if (!formBox || formBox.style.display !== 'block') return; // Not using personalization
-      
       if (isSubmitting) {
           e.preventDefault();
           e.stopImmediatePropagation();
@@ -1219,7 +1216,10 @@
       isSubmitting = true;
 
       const loaderOverlay = document.getElementById('em-loader-overlay');
-      if (loaderOverlay) loaderOverlay.style.display = 'flex';
+      if (loaderOverlay) {
+          loaderOverlay.style.display = 'flex';
+          loaderOverlay.innerHTML = '<div style="color:white; font-size:18px; text-align:center;">Adding personalization...<br><small>Please wait</small></div>';
+      }
 
       try {
         if (mode === 'text' && window.html2canvas) {
@@ -1264,7 +1264,6 @@
            const matchingVariant = addonVariants.find(v => v.title && v.title.toLowerCase().includes(frame.name.toLowerCase().trim()));
            if (matchingVariant) {
               variantId = matchingVariant.id;
-              
               let existing = itemsToAdd.find(i => i.id === variantId);
               if (existing) {
                  existing.quantity += parseInt(baseQty);
@@ -1288,56 +1287,70 @@
         });
       }
 
-      if (itemsToAdd.length > 0) {
-        const hasFallback = itemsToAdd.some(item => String(item.id).includes('fallback'));
-        if (hasFallback) {
-           alert("Embroidery App Error: Add-on product not found. Please go to the App Settings and click 'Sync Add-on Product'.");
-           isSubmitting = false;
-           if (loaderOverlay) loaderOverlay.style.display = 'none';
-           return;
-        }
+      const hasFallback = itemsToAdd.some(item => String(item.id).includes('fallback'));
+      if (hasFallback) {
+         alert("Embroidery App Error: Add-on product not found. Please go to the App Settings and click 'Sync Add-on Product'.");
+         isSubmitting = false;
+         if (loaderOverlay) loaderOverlay.style.display = 'none';
+         return;
+      }
 
-        try {
-           // 1. Add Add-ons FIRST via JSON format (reliable for multiple items)
-           const addonRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
+      try {
+         // 1. Add the main product using FormData to preserve the preview.png file upload!
+         const mainRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ items: itemsToAdd })
-           });
-           
-           if (!addonRes.ok) {
-              const resData = await addonRes.json();
-              throw new Error("Failed to add frames: " + (resData.description || resData.message));
-           }
+             body: formData
+         });
+         if (!mainRes.ok) throw new Error("Failed to add main product");
 
-           // Force Shopify cart session to sync across cache nodes to prevent race conditions
-           await fetch(window.Shopify.routes.root + 'cart.js');
-           
-           // 2. Submit the main product natively. This bypassed all JS listeners and POSTs to /cart/add
-           // preserving the File upload and navigating the user to the cart page reliably.
-           form.submit();
-        } catch(err) {
-          console.error("Failed to add items", err);
-          alert(err.message || "Network error. Please try again.");
-          isSubmitting = false;
-          if (loaderOverlay) loaderOverlay.style.display = 'none';
-        }
-      } else {
-        // If no add-on needed or missing, just submit normally
-        form.submit();
+         // 2. Wait 1000ms for Shopify's distributed cache to sync! 
+         // (Crucial for preventing the second request from overwriting the first)
+         await new Promise(resolve => setTimeout(resolve, 1000));
+         await fetch(window.Shopify.routes.root + 'cart.js'); // Force cache sync
+
+         // 3. Add the frames using JSON format
+         if (itemsToAdd.length > 0) {
+             const addonRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ items: itemsToAdd })
+             });
+             if (!addonRes.ok) throw new Error("Failed to add frames");
+         }
+         
+         // Success! Redirect to cart page
+         window.location.href = window.Shopify.routes.root + 'cart';
+      } catch(err) {
+        console.error("Failed to add items", err);
+        alert(err.message || "Network error. Please try again.");
+        isSubmitting = false;
+        if (loaderOverlay) loaderOverlay.style.display = 'none';
       }
   };
 
+  // Global Capture Listener to guarantee we intercept any add-to-cart clicks
+  document.addEventListener('click', function(e) {
+      const btn = e.target.closest('button[type="submit"], button[name="add"], .add-to-cart, .product-form__submit');
+      if (btn) {
+          const formId = btn.getAttribute('form');
+          const form = formId ? document.getElementById(formId) : btn.closest('form[action^="/cart/add"]');
+          if (form) {
+              const formBox = document.getElementById('em-form-box');
+              if (formBox && formBox.style.display === 'block') {
+                  hijackAction(e, form);
+              }
+          }
+      }
+  }, true);
+
   const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
   addToCartForms.forEach(form => {
-    // Hijack submit events
-    form.addEventListener('submit', (e) => hijackAction(e, form), true);
-    
-    // Hijack click events on the add to cart button (some themes use this instead of submit)
-    const btns = form.querySelectorAll('button[type="submit"], input[type="submit"], [name="add"], .add-to-cart');
-    btns.forEach(btn => {
-        btn.addEventListener('click', (e) => hijackAction(e, form), true);
-    });
+    form.addEventListener('submit', (e) => {
+        const formBox = document.getElementById('em-form-box');
+        if (formBox && formBox.style.display === 'block') {
+            hijackAction(e, form);
+        }
+    }, true);
   });
 
 })();
