@@ -1245,8 +1245,19 @@
         console.error("Preview generation failed", e);
       }
 
+      const formData = new FormData(form);
+      const mainVariantId = formData.get('id');
+      const baseQty = formData.get('quantity') || 1;
+      
+      let properties = {};
+      for (const [key, value] of formData.entries()) {
+          if (key.startsWith('properties[')) {
+              const propName = key.substring(11, key.length - 1);
+              properties[propName] = value;
+          }
+      }
+
       let itemsToAdd = [];
-      const baseQty = document.querySelector('[name="quantity"]')?.value || 1;
 
       if (mode === 'text') {
         let selectedFrames = [];
@@ -1262,7 +1273,7 @@
 
         selectedFrames.forEach(frame => {
            let variantId = null;
-           const matchingVariant = addonVariants.find(v => v.title.includes(frame.name));
+           const matchingVariant = addonVariants.find(v => v.title && v.title.toLowerCase().includes(frame.name.toLowerCase().trim()));
            if (matchingVariant) {
               variantId = matchingVariant.id;
               
@@ -1274,21 +1285,22 @@
                  itemsToAdd.push({
                    id: variantId,
                    quantity: parseInt(baseQty),
-                   properties: { "For_Product": "{{ product.title }} - " + frame.line }
+                   properties: { "For_Product": "Attached to: " + frame.line }
                  });
               }
+           } else {
+              alert("Embroidery App Error: Could not find variant matching '" + frame.name + "'. Please check App Settings.");
            }
         });
       } else if (mode === 'image' && imageVariantId) {
         itemsToAdd.push({
            id: imageVariantId,
            quantity: parseInt(baseQty),
-           properties: { "For_Product": "{{ product.title }}" }
+           properties: { "For_Product": "Image Customization" }
         });
       }
 
       if (itemsToAdd.length > 0) {
-        // Check for fallback IDs
         const hasFallback = itemsToAdd.some(item => String(item.id).includes('fallback'));
         if (hasFallback) {
            alert("Embroidery App Error: Add-on product not found. Please go to the App Settings and click 'Sync Add-on Product'.");
@@ -1297,34 +1309,51 @@
            return;
         }
 
+        const finalFormData = new FormData();
+        
+        // Add Main Product
+        finalFormData.append('items[0][id]', mainVariantId);
+        finalFormData.append('items[0][quantity]', baseQty);
+        for (const [k, v] of Object.entries(properties)) {
+            finalFormData.append(`items[0][properties][${k}]`, v);
+        }
+
+        // Add Add-ons
+        itemsToAdd.forEach((addon, index) => {
+            let i = index + 1;
+            finalFormData.append(`items[${i}][id]`, addon.id);
+            finalFormData.append(`items[${i}][quantity]`, addon.quantity);
+            for (const [k, v] of Object.entries(addon.properties)) {
+                finalFormData.append(`items[${i}][properties][${k}]`, v);
+            }
+        });
+
         try {
-           // 1. Add the add-on products first
            const res = await fetch(window.Shopify.routes.root + 'cart/add.js', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ items: itemsToAdd })
+             body: finalFormData
            });
            
            const resData = await res.json();
            
            if (!res.ok) {
               console.error("Cart add error:", resData);
-              alert("Failed to add frame to cart: " + (resData.description || resData.message));
+              alert("Failed to add items to cart: " + (resData.description || resData.message));
               isSubmitting = false;
               if (loaderOverlay) loaderOverlay.style.display = 'none';
               return;
            }
            
-           // 2. Submit the main form normally so file uploads work
-           form.submit();
+           // Success! Redirect to cart page
+           window.location.href = window.Shopify.routes.root + 'cart';
         } catch(err) {
-          console.error("Failed to add addons", err);
-          alert("Network error while adding frames. Please try again.");
+          console.error("Failed to add items", err);
+          alert("Network error. Please try again.");
           isSubmitting = false;
           if (loaderOverlay) loaderOverlay.style.display = 'none';
         }
       } else {
-        // If no add-on needed or missing, just submit
+        // If no add-on needed or missing, just submit normally
         form.submit();
       }
     }, true);
