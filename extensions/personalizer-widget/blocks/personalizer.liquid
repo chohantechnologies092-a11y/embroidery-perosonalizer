@@ -1,7 +1,21 @@
 {% assign prod_config = product.metafields.embroidery_app.config.value %}
 {% if prod_config != blank and prod_config.isActive != false %}
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Lobster&family=Pacifico&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Alex+Brush&family=Parisienne&family=Sacramento&family=Cookie&family=Charm:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSK/6dG+63nBO1oA++1aA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
+  .em-loader-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 999999; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .em-spinner {
+    width: 40px; height: 40px; border: 4px solid #f3f3f3;
+    border-top: 4px solid #000; border-radius: 50%;
+    animation: em-spin 1s linear infinite; margin-bottom: 15px;
+  }
+  @keyframes em-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .em-loader-text { font-size: 18px; font-weight: 600; color: #333; }
   .em-personalizer-wrapper {
     margin-bottom: 25px;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -250,6 +264,11 @@
   }
 </style>
 
+<div class="em-loader-overlay" id="em-loader-overlay">
+  <div class="em-spinner"></div>
+  <div class="em-loader-text">Generating Personalization Preview...</div>
+</div>
+
 <div class="em-personalizer-wrapper" id="em-app-root">
   <button type="button" class="em-btn-main" id="em-btn-expand">
     <span>Customize & Personalize</span>
@@ -277,14 +296,10 @@
         </select>
       </div>
 
-      <div class="em-form-group" id="em-placement-section">
+      <div class="em-form-group" id="em-placement-section" style="display: none;">
         <label>Embroidery Placement</label>
         <select class="em-select" id="em-placement-size">
-          <option value="Left Chest">Left Chest</option>
-          <option value="Right Chest">Right Chest</option>
-          <option value="Center">Center</option>
-          <option value="Back">Back</option>
-          <option value="Custom">Custom (Drag on Image)</option>
+          <option value="Custom" selected>Custom (Drag on Image)</option>
         </select>
       </div>
 
@@ -299,7 +314,7 @@
           <input type="text" class="em-line-input" id="em-line-1" maxlength="10" placeholder="Please select Frame Size first" disabled>
           <div class="em-char-counter"><span id="em-char-count-1">0</span>/<span class="em-max-chars">-</span></div>
         </div>
-        <div class="em-form-group">
+        <div class="em-form-group" style="display: none;">
           <label>Line 1 Text Size</label>
           <input type="range" class="em-line-size" id="em-size-1" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
         </div>
@@ -307,11 +322,17 @@
 
       <div class="em-line-group" id="em-line-group-2" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
         <div class="em-form-group">
-          <label>Line 2 Text</label>
-          <input type="text" class="em-line-input" id="em-line-2" maxlength="10" placeholder="Line 2" disabled>
-          <div class="em-char-counter"><span id="em-char-count-2">0</span>/<span class="em-max-chars">-</span></div>
+          <label>Line 2 Frame Size *</label>
+          <select class="em-select" id="em-frame-size-2">
+            <option value="" disabled selected>Select Frame Size for Line 2</option>
+          </select>
         </div>
         <div class="em-form-group">
+          <label>Line 2 Text</label>
+          <input type="text" class="em-line-input" id="em-line-2" maxlength="10" placeholder="Please select Line 2 Frame Size" disabled>
+          <div class="em-char-counter"><span id="em-char-count-2">0</span>/<span class="em-max-chars">-</span></div>
+        </div>
+        <div class="em-form-group" style="display: none;">
           <label>Line 2 Text Size</label>
           <input type="range" class="em-line-size" id="em-size-2" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
         </div>
@@ -319,11 +340,17 @@
 
       <div class="em-line-group" id="em-line-group-3" style="display:none; padding-top: 15px; border-top: 1px dashed #ccc;">
         <div class="em-form-group">
-          <label>Line 3 Text</label>
-          <input type="text" class="em-line-input" id="em-line-3" maxlength="10" placeholder="Line 3" disabled>
-          <div class="em-char-counter"><span id="em-char-count-3">0</span>/<span class="em-max-chars">-</span></div>
+          <label>Line 3 Frame Size *</label>
+          <select class="em-select" id="em-frame-size-3">
+            <option value="" disabled selected>Select Frame Size for Line 3</option>
+          </select>
         </div>
         <div class="em-form-group">
+          <label>Line 3 Text</label>
+          <input type="text" class="em-line-input" id="em-line-3" maxlength="10" placeholder="Please select Line 3 Frame Size" disabled>
+          <div class="em-char-counter"><span id="em-char-count-3">0</span>/<span class="em-max-chars">-</span></div>
+        </div>
+        <div class="em-form-group" style="display: none;">
           <label>Line 3 Text Size</label>
           <input type="range" class="em-line-size" id="em-size-3" min="10" max="100" value="50" style="width:100%; cursor:pointer;" disabled>
         </div>
@@ -414,6 +441,8 @@
     document.getElementById('em-size-3')
   ];
   const frameSizeSelect = document.getElementById('em-frame-size');
+  const frameSizeSelect2 = document.getElementById('em-frame-size-2');
+  const frameSizeSelect3 = document.getElementById('em-frame-size-3');
   const placementSelect = document.getElementById('em-placement-size');
   const cartProps = document.getElementById('em-cart-properties');
   const fileInput = document.getElementById('em-file-input');
@@ -605,6 +634,8 @@
     opt.innerText = `${frame.name} - Max ${maxL} Letters (+£${formattedPrice})`;
     opt.dataset.maxLetters = maxL;
     frameSizeSelect.appendChild(opt);
+    if (frameSizeSelect2) frameSizeSelect2.appendChild(opt.cloneNode(true));
+    if (frameSizeSelect3) frameSizeSelect3.appendChild(opt.cloneNode(true));
   });
 
   // Also locate the image upload variant
@@ -615,6 +646,43 @@
   });
 
   let previewOverlay = null;
+
+  const getDynamicZone = () => {
+      let safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
+      let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
+      let safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
+      let safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
+
+      let globalMaxLetters = 0;
+      frameConfig.forEach(f => {
+          let m = parseInt(f.maxLetters) || 0;
+          if (m > globalMaxLetters) globalMaxLetters = m;
+      });
+      if (globalMaxLetters === 0) globalMaxLetters = 10;
+      
+      const fs2 = document.getElementById('em-frame-size-2');
+      const fs3 = document.getElementById('em-frame-size-3');
+      const grp2 = document.getElementById('em-line-group-2');
+      const grp3 = document.getElementById('em-line-group-3');
+
+      let max1 = frameSizeSelect && frameSizeSelect.selectedIndex > 0 ? parseInt(frameSizeSelect.options[frameSizeSelect.selectedIndex].dataset.maxLetters) : 0;
+      let max2 = fs2 && fs2.selectedIndex > 0 && grp2 && grp2.style.display !== 'none' ? parseInt(fs2.options[fs2.selectedIndex].dataset.maxLetters) : 0;
+      let max3 = fs3 && fs3.selectedIndex > 0 && grp3 && grp3.style.display !== 'none' ? parseInt(fs3.options[fs3.selectedIndex].dataset.maxLetters) : 0;
+      
+      let currentMax = Math.max(max1 || 0, max2 || 0, max3 || 0);
+      let currentScale = currentMax > 0 ? (0.5 + (currentMax / globalMaxLetters) * 0.5) : 1;
+      
+      let newSafeW = safeW * currentScale;
+      let newSafeH = safeH * currentScale;
+      
+      return {
+         x: safeX + (safeW - newSafeW) / 2,
+         y: safeY + (safeH - newSafeH) / 2,
+         w: newSafeW,
+         h: newSafeH
+      };
+  };
+
   function setupPreviewOverlay(productConfig) {
     if (!productConfig) {
       console.log("Embroidery Personalizer: No zone config found in Metafields for this product.");
@@ -694,10 +762,11 @@
               if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
           }
 
-          let safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
-          let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
-          const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
-          const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
+          const dZone = getDynamicZone();
+          let safeX = dZone.x;
+          let safeY = dZone.y;
+          const safeW = dZone.w;
+          const safeH = dZone.h;
           const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
 
           const placement = placementSelect.value;
@@ -734,10 +803,13 @@
              }
           }
 
-          const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100));
-          const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100));
-          const exactOverlayWidth = imgRect.width * (safeW / 100);
-          const exactOverlayHeight = imgRect.height * (safeH / 100);
+          const rawWidth = imgRect.width * (safeW / 100);
+          const rawHeight = imgRect.height * (safeH / 100);
+          const exactOverlayWidth = Math.max(rawWidth, rawHeight);
+          const exactOverlayHeight = exactOverlayWidth;
+
+          const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100)) - (exactOverlayWidth - rawWidth) / 2;
+          const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100)) - (exactOverlayHeight - rawHeight) / 2;
 
           overlay.style.left = exactOverlayLeft + 'px';
           overlay.style.top = exactOverlayTop + 'px';
@@ -748,7 +820,7 @@
           overlay.style.transformOrigin = 'center center';
           
           const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-          const calcSize = exactOverlayHeight * 0.4 * sizeMultiplier;
+          const calcSize = exactOverlayHeight * 0.25 * sizeMultiplier;
           overlay.style.fontSize = calcSize + 'px';
           
           overlay.style.opacity = computedStyle.opacity;
@@ -773,7 +845,8 @@
         resizeObserver.observe(targetImage);
 
         overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
-        overlay.style.border = '2px dashed rgba(44, 110, 203, 0.6)';
+        overlay.style.border = '2px dotted rgba(44, 110, 203, 0.8)';
+        overlay.style.borderRadius = '50%';
         overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
         overlay.style.boxSizing = 'border-box';
         
@@ -803,11 +876,23 @@
         const onPointerUp = (e) => {
           if (!isDragging) return;
           isDragging = false;
-          const imgWidth = targetImage.clientWidth;
-          const imgHeight = targetImage.clientHeight;
+          
+          const imgRect = targetImage.getBoundingClientRect();
+          const overlayRect = overlay.getBoundingClientRect();
+          const pixelX = overlayRect.left - imgRect.left;
+          const pixelY = overlayRect.top - imgRect.top;
+          
+          const dZone = getDynamicZone();
+          const rawW = imgRect.width * (dZone.w / 100);
+          const rawH = imgRect.height * (dZone.h / 100);
+          const diameter = Math.max(rawW, rawH);
+          
+          const safeXPixels = pixelX + (diameter - rawW) / 2;
+          const safeYPixels = pixelY + (diameter - rawH) / 2;
+
           customCoords = {
-             x: ((overlay.offsetLeft - targetImage.offsetLeft) / imgWidth) * 100,
-             y: ((overlay.offsetTop - targetImage.offsetTop) / imgHeight) * 100
+             x: (safeXPixels / imgRect.width) * 100,
+             y: (safeYPixels / imgRect.height) * 100
           };
           window.emOverlayUpdateFunctions.forEach(fn => fn());
           updatePreview();
@@ -870,10 +955,11 @@
                           if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
                       }
 
-                      let safeX = productConfig.zoneX > 100 ? (productConfig.zoneX / 600 * 100) : productConfig.zoneX;
-                      let safeY = productConfig.zoneY > 100 ? (productConfig.zoneY / 600 * 100) : productConfig.zoneY;
-                      const safeW = productConfig.zoneWidth > 100 ? (productConfig.zoneWidth / 400 * 100) : productConfig.zoneWidth;
-                      const safeH = productConfig.zoneHeight > 100 ? (productConfig.zoneHeight / 400 * 100) : productConfig.zoneHeight;
+                      const dZone = getDynamicZone();
+                      let safeX = dZone.x;
+                      let safeY = dZone.y;
+                      const safeW = dZone.w;
+                      const safeH = dZone.h;
                       const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
 
                       const placement = placementSelect.value;
@@ -910,10 +996,13 @@
                          }
                       }
 
-                      const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100));
-                      const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100));
-                      const exactOverlayWidth = imgRect.width * (safeW / 100);
-                      const exactOverlayHeight = imgRect.height * (safeH / 100);
+                      const rawWidth = imgRect.width * (safeW / 100);
+                      const rawHeight = imgRect.height * (safeH / 100);
+                      const exactOverlayWidth = Math.max(rawWidth, rawHeight);
+                      const exactOverlayHeight = exactOverlayWidth;
+
+                      const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100)) - (exactOverlayWidth - rawWidth) / 2;
+                      const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100)) - (exactOverlayHeight - rawHeight) / 2;
 
                       overlay.style.left = exactOverlayLeft + 'px';
                       overlay.style.top = exactOverlayTop + 'px';
@@ -924,7 +1013,7 @@
                       overlay.style.transformOrigin = 'center center';
                       
                       const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-                      const calcSize = exactOverlayHeight * 0.4 * sizeMultiplier;
+                      const calcSize = exactOverlayHeight * 0.25 * sizeMultiplier;
                       overlay.style.fontSize = calcSize + 'px';
                       
                       overlay.style.opacity = computedStyle.opacity;
@@ -944,6 +1033,10 @@
                     };
                     
                     overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
+                    overlay.style.border = '2px dotted rgba(44, 110, 203, 0.8)';
+                    overlay.style.borderRadius = '50%';
+                    overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
+                    overlay.style.boxSizing = 'border-box';
                     overlay.style.zIndex = '9999';
 
                     window.emOverlayUpdateFunctions.push(updatePosition);
@@ -975,29 +1068,35 @@
     window.addEventListener('load', () => setupPreviewOverlay(productConfig));
   }
 
-  frameSizeSelect.addEventListener('change', () => {
-    const selectedOpt = frameSizeSelect.options[frameSizeSelect.selectedIndex];
-    const maxL = selectedOpt.dataset.maxLetters || 10;
-    
-    // Enable inputs once a frame size is selected
-    lineInputs.forEach((input, index) => {
-      input.removeAttribute('disabled');
-      input.setAttribute('placeholder', `Line ${index + 1}`);
-      sizeSliders[index].removeAttribute('disabled');
+  const setupFrameSelect = (selectElem, lineIndex) => {
+    if (!selectElem) return;
+    selectElem.addEventListener('change', () => {
+      const selectedOpt = selectElem.options[selectElem.selectedIndex];
+      const maxL = selectedOpt.dataset.maxLetters || 10;
       
-      input.setAttribute('maxlength', maxL);
-      if (input.value.length > maxL) {
-        input.value = input.value.substring(0, maxL);
+      lineInputs[lineIndex].removeAttribute('disabled');
+      lineInputs[lineIndex].setAttribute('placeholder', `Line ${lineIndex + 1}`);
+      sizeSliders[lineIndex].removeAttribute('disabled');
+      
+      lineInputs[lineIndex].setAttribute('maxlength', maxL);
+      if (lineInputs[lineIndex].value.length > maxL) {
+        lineInputs[lineIndex].value = lineInputs[lineIndex].value.substring(0, maxL);
       }
-      charCounts[index].innerText = input.value.length;
+      charCounts[lineIndex].innerText = lineInputs[lineIndex].value.length;
+      charCounts[lineIndex].nextElementSibling.innerText = maxL;
+      
+      if (lineIndex === 0) {
+        document.getElementById('em-add-line-btn').style.opacity = '1';
+        document.getElementById('em-add-line-btn').style.pointerEvents = 'auto';
+      }
+      
+      updatePreview();
     });
-    
-    document.getElementById('em-add-line-btn').style.opacity = '1';
-    document.getElementById('em-add-line-btn').style.pointerEvents = 'auto';
+  };
 
-    document.querySelectorAll('.em-max-chars').forEach(span => span.innerText = maxL);
-    updatePreview();
-  });
+  setupFrameSelect(frameSizeSelect, 0);
+  setupFrameSelect(frameSizeSelect2, 1);
+  setupFrameSelect(frameSizeSelect3, 2);
 
   function updatePreview() {
     if (mode === 'text' && previewOverlay) {
@@ -1026,8 +1125,9 @@
         }
 
         let allPlaceholders = linesToDraw.every(l => l.isPlaceholder);
-        overlay.style.border = allPlaceholders ? '2px dashed rgba(44, 110, 203, 0.6)' : 'none';
-        overlay.style.backgroundColor = allPlaceholders ? 'rgba(44, 110, 203, 0.1)' : 'transparent';
+        overlay.style.border = `2px dotted ${colorInput.value}`;
+        overlay.style.borderRadius = '50%';
+        overlay.style.backgroundColor = allPlaceholders ? 'rgba(0, 0, 0, 0.05)' : 'transparent';
 
         linesToDraw.forEach((line) => {
           const span = document.createElement('span');
@@ -1037,8 +1137,8 @@
           span.style.whiteSpace = 'nowrap';
           
           const sizeMultiplier = parseFloat(line.sizeSlider) / 50;
-          const baseHeight = overlay.clientHeight / activeLines;
-          const calcSize = baseHeight * 0.4 * sizeMultiplier;
+          const baseHeight = overlay.clientHeight;
+          const calcSize = baseHeight * 0.25 * sizeMultiplier;
           span.style.fontSize = calcSize + 'px';
           overlay.appendChild(span);
         });
@@ -1049,13 +1149,19 @@
       if (placementText === 'Custom' && customCoords) {
           placementText = `Custom (X: ${Math.round(customCoords.x)}%, Y: ${Math.round(customCoords.y)}%)`;
       }
-      let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Frame: ${sizeText} | Placement: ${placementText}`;
+      let props = `Font: ${fontSelect.value} | Color: ${colorNameInput.value} | Placement: ${placementText}`;
       if (angleSlider && angleSlider.value !== "0") {
          props += ` | Angle: ${angleSlider.value}°`;
       }
-      props += ` | Line 1: ${lineInputs[0].value}`;
-      if (activeLines >= 2) props += ` | Line 2: ${lineInputs[1].value}`;
-      if (activeLines >= 3) props += ` | Line 3: ${lineInputs[2].value}`;
+      props += ` | Line 1: ${lineInputs[0].value} (Frame: ${sizeText})`;
+      if (activeLines >= 2) {
+          let sizeText2 = frameSizeSelect2.options[frameSizeSelect2.selectedIndex]?.text || "None";
+          props += ` | Line 2: ${lineInputs[1].value} (Frame: ${sizeText2})`;
+      }
+      if (activeLines >= 3) {
+          let sizeText3 = frameSizeSelect3.options[frameSizeSelect3.selectedIndex]?.text || "None";
+          props += ` | Line 3: ${lineInputs[2].value} (Frame: ${sizeText3})`;
+      }
       
       cartProps.value = props;
     } else {
@@ -1076,42 +1182,90 @@
       e.preventDefault(); 
       isSubmitting = true;
 
-      let variantId = null;
-      if (mode === 'text' && frameSizeSelect.value) {
-        const baseFrameName = frameSizeSelect.value;
-        const lineSuffix = `(${activeLines} Line${activeLines > 1 ? 's' : ''})`;
-        
-        const matchingVariant = addonVariants.find(v => v.title.includes(baseFrameName) && v.title.includes(lineSuffix));
-        if (matchingVariant) {
-          variantId = matchingVariant.id;
-        } else {
-           const fallback = addonVariants.find(v => v.title.includes(baseFrameName));
-           if (fallback) variantId = fallback.id;
+      const loaderOverlay = document.getElementById('em-loader-overlay');
+      if (loaderOverlay) loaderOverlay.style.display = 'flex';
+
+      try {
+        if (mode === 'text' && window.html2canvas) {
+          const overlay = document.querySelector('.em-native-overlay');
+          if (overlay && overlay.parentElement) {
+             const canvas = await html2canvas(overlay.parentElement, { useCORS: true, backgroundColor: null });
+             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+             if (blob) {
+                const file = new File([blob], "preview.jpg", { type: "image/jpeg" });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.name = 'properties[_Preview]';
+                fileInput.style.display = 'none';
+                fileInput.files = dataTransfer.files;
+                form.appendChild(fileInput);
+             }
+          }
         }
-      } else if (mode === 'image' && imageVariantId) {
-        variantId = imageVariantId;
+      } catch(e) {
+        console.error("Preview generation failed", e);
       }
 
-      if (variantId) {
+      let itemsToAdd = [];
+      const baseQty = document.querySelector('[name="quantity"]')?.value || 1;
+
+      if (mode === 'text') {
+        let selectedFrames = [];
+        if (activeLines >= 1 && frameSizeSelect.value) {
+           selectedFrames.push({ name: frameSizeSelect.value, line: "Line 1" });
+        }
+        if (activeLines >= 2 && frameSizeSelect2 && frameSizeSelect2.value) {
+           selectedFrames.push({ name: frameSizeSelect2.value, line: "Line 2" });
+        }
+        if (activeLines >= 3 && frameSizeSelect3 && frameSizeSelect3.value) {
+           selectedFrames.push({ name: frameSizeSelect3.value, line: "Line 3" });
+        }
+
+        selectedFrames.forEach(frame => {
+           let variantId = null;
+           const matchingVariant = addonVariants.find(v => v.title.includes(frame.name));
+           if (matchingVariant) {
+              variantId = matchingVariant.id;
+              
+              let existing = itemsToAdd.find(i => i.id === variantId);
+              if (existing) {
+                 existing.quantity += parseInt(baseQty);
+                 existing.properties["For_Product"] += `, ${frame.line}`;
+              } else {
+                 itemsToAdd.push({
+                   id: variantId,
+                   quantity: parseInt(baseQty),
+                   properties: { "For_Product": "{{ product.title }} - " + frame.line }
+                 });
+              }
+           }
+        });
+      } else if (mode === 'image' && imageVariantId) {
+        itemsToAdd.push({
+           id: imageVariantId,
+           quantity: parseInt(baseQty),
+           properties: { "For_Product": "{{ product.title }}" }
+        });
+      }
+
+      if (itemsToAdd.length > 0) {
         try {
-           // 1. Add the add-on product first
+           // 1. Add the add-on products first
            await fetch(window.Shopify.routes.root + 'cart/add.js', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({
-               items: [{
-                 id: variantId,
-                 quantity: document.querySelector('[name="quantity"]')?.value || 1,
-                 properties: { "For_Product": "{{ product.title }}" }
-               }]
-             })
+             body: JSON.stringify({ items: itemsToAdd })
            });
            
            // 2. Submit the main form normally so file uploads work
            form.submit();
         } catch(err) {
-          console.error("Failed to add addon", err);
+          console.error("Failed to add addons", err);
           isSubmitting = false;
+          if (loaderOverlay) loaderOverlay.style.display = 'none';
         }
       } else {
         // If no add-on needed or missing, just submit
