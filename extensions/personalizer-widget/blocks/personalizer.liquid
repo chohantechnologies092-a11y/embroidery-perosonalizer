@@ -1199,20 +1199,20 @@
     
     priceNodes.forEach(node => {
        if (/\d/.test(node.innerText) && !node.closest('s') && !node.closest('strike')) {
-           node.innerHTML = emShopCurrency + newTotal;
+                      node.innerHTML = emShopCurrency + newTotal;
        }
     });
   };
 
-  // Dynamic Pricing & Cart Interception
-  const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
-  
-  addToCartForms.forEach(form => {
-    let isSubmitting = false;
-
-    form.addEventListener('submit', async function(e) {
-      if (formBox.style.display !== 'block') return; // Not using personalization
-      if (isSubmitting) return; // Allow normal submit
+  const hijackAction = async function(e, form) {
+      const formBox = document.getElementById('em-form-box');
+      if (!formBox || formBox.style.display !== 'block') return; // Not using personalization
+      
+      if (isSubmitting) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+      }
 
       e.preventDefault(); 
       e.stopImmediatePropagation(); // Prevent theme's AJAX cart from causing a race condition
@@ -1223,39 +1223,27 @@
 
       try {
         if (mode === 'text' && window.html2canvas) {
-          const overlay = document.querySelector('.em-native-overlay');
-          if (overlay && overlay.parentElement) {
-             const canvas = await html2canvas(overlay.parentElement, { useCORS: true, backgroundColor: null });
-             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-             if (blob) {
-                const file = new File([blob], "preview.jpg", { type: "image/jpeg" });
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.name = 'properties[_Preview]';
-                fileInput.style.display = 'none';
-                fileInput.files = dataTransfer.files;
-                form.appendChild(fileInput);
-             }
-          }
+           const previewEl = document.getElementById('em-preview-visual');
+           const canvas = await window.html2canvas(previewEl, { backgroundColor: null, scale: 2 });
+           const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+           if (blob) {
+              const file = new File([blob], "preview.png", { type: "image/png" });
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
+              const fileInput = document.createElement('input');
+              fileInput.type = 'file';
+              fileInput.name = 'properties[_Preview]';
+              fileInput.files = dataTransfer.files;
+              fileInput.style.display = 'none';
+              form.appendChild(fileInput);
+           }
         }
-      } catch(e) {
-        console.error("Preview generation failed", e);
+      } catch(err) {
+        console.error("Preview generation failed", err);
       }
 
       const formData = new FormData(form);
-      const mainVariantId = formData.get('id');
       const baseQty = formData.get('quantity') || 1;
-      
-      let properties = {};
-      for (const [key, value] of formData.entries()) {
-          if (key.startsWith('properties[')) {
-              const propName = key.substring(11, key.length - 1);
-              properties[propName] = value;
-          }
-      }
 
       let itemsToAdd = [];
 
@@ -1310,18 +1298,7 @@
         }
 
         try {
-           // 1. Add Main Product (with File uploads from the original form)
-           const mainRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
-               method: 'POST',
-               body: formData
-           });
-           
-           if (!mainRes.ok) {
-              const resData = await mainRes.json();
-              throw new Error("Failed to add main product: " + (resData.description || resData.message));
-           }
-
-           // 2. Add Add-ons (using JSON format which reliably supports multiple items)
+           // 1. Add Add-ons FIRST via JSON format (reliable for multiple items)
            const addonRes = await fetch(window.Shopify.routes.root + 'cart/add.js', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
@@ -1332,9 +1309,13 @@
               const resData = await addonRes.json();
               throw new Error("Failed to add frames: " + (resData.description || resData.message));
            }
+
+           // Force Shopify cart session to sync across cache nodes to prevent race conditions
+           await fetch(window.Shopify.routes.root + 'cart.js');
            
-           // Success! Redirect to cart page
-           window.location.href = window.Shopify.routes.root + 'cart';
+           // 2. Submit the main product natively. This bypassed all JS listeners and POSTs to /cart/add
+           // preserving the File upload and navigating the user to the cart page reliably.
+           form.submit();
         } catch(err) {
           console.error("Failed to add items", err);
           alert(err.message || "Network error. Please try again.");
@@ -1345,7 +1326,18 @@
         // If no add-on needed or missing, just submit normally
         form.submit();
       }
-    }, true);
+  };
+
+  const addToCartForms = document.querySelectorAll('form[action^="/cart/add"]');
+  addToCartForms.forEach(form => {
+    // Hijack submit events
+    form.addEventListener('submit', (e) => hijackAction(e, form), true);
+    
+    // Hijack click events on the add to cart button (some themes use this instead of submit)
+    const btns = form.querySelectorAll('button[type="submit"], input[type="submit"], [name="add"], .add-to-cart');
+    btns.forEach(btn => {
+        btn.addEventListener('click', (e) => hijackAction(e, form), true);
+    });
   });
 
 })();
