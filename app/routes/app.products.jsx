@@ -300,28 +300,12 @@ export default function Products() {
       selectionIds: selectionIds,
     });
 
-    if (payload) {
-      const currentIds = configs.map((c) => c.productId);
+    if (payload && payload.length > 0) {
       const payloadIds = payload.map((p) => p.id);
-      const toAdd = payloadIds.filter((id) => !currentIds.includes(id));
-      const toRemove = currentIds.filter((id) => !payloadIds.includes(id));
 
-      if (toRemove.length > 0) {
-        if (
-          confirm(
-            `${toRemove.length} products were deselected in the picker. Do you want to remove their embroidery configurations?`,
-          )
-        ) {
-          submit(
-            { intent: "bulk_delete", productIds: JSON.stringify(toRemove) },
-            { method: "post" },
-          );
-        }
-      }
-
-      if (toAdd.length > 0) {
-        navigate(`/app/configure?ids=${encodeURIComponent(toAdd.join(","))}`);
-      }
+      navigate(
+        `/app/configure?ids=${encodeURIComponent(payloadIds.join(","))}`,
+      );
     }
   };
 

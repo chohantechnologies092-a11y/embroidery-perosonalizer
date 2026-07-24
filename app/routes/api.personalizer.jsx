@@ -45,22 +45,27 @@ export const loader = async ({ request }) => {
     let productConfig = null;
 
     if (productId) {
+      const fullGid = productId.startsWith("gid://")
+        ? productId
+        : `gid://shopify/Product/${productId}`;
+      const rawId = productId.replace("gid://shopify/Product/", "");
+
       productConfig = await prisma.personalizerConfig.findUnique({
         where: {
           shop_productId: {
             shop,
-            productId: `gid://shopify/Product/${productId}`,
+            productId: fullGid,
           },
         },
       });
 
-      // Fallback: search by ID string just in case it was stored differently
+      // Fallback: search by raw numeric ID string if stored without GID prefix
       if (!productConfig) {
         productConfig = await prisma.personalizerConfig.findFirst({
           where: {
             shop,
             productId: {
-              contains: productId,
+              contains: rawId,
             },
           },
         });
