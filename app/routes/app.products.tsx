@@ -237,15 +237,11 @@ export default function Products() {
   } = useIndexResourceState(paginatedConfigs as any);
 
   const handleSelectProducts = async () => {
-    const selectionIds = configs.map(c => ({ 
-      id: c.productId.startsWith('gid://') ? c.productId : `gid://shopify/Product/${c.productId}` 
-    }));
-
     const payload = await shopify.resourcePicker({
       type: "product",
       action: "select",
       multiple: true,
-      selectionIds: selectionIds,
+      selectionIds: [],
     });
     
     if (payload && payload.length > 0) {
@@ -396,6 +392,15 @@ export default function Products() {
                   selectedItemsCount={allResourcesSelected ? 'All' : selectedResources.length}
                   onSelectionChange={handleSelectionChange}
                   promotedBulkActions={[
+                    {
+                      content: 'Configure Selected',
+                      onAction: () => {
+                        const productIds = selectedResources.map(id => filteredConfigs.find(c => c.id === id)?.productId).filter(Boolean);
+                        if (productIds.length > 0) {
+                          navigate(`/app/configure?ids=${encodeURIComponent(productIds.join(','))}`);
+                        }
+                      },
+                    },
                     {
                       content: 'Activate',
                       onAction: () => {
