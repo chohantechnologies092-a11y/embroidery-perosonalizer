@@ -5,11 +5,11 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  react-router: ~7.12.0
-  '@react-router/dev': ~7.12.0
-  '@react-router/fs-routes': ~7.12.0
-  '@react-router/node': ~7.12.0
-  '@react-router/serve': ~7.12.0
+  react-router: ^7.12.0
+  '@react-router/dev': ^7.12.0
+  '@react-router/fs-routes': ^7.12.0
+  '@react-router/node': ^7.12.0
+  '@react-router/serve': ^7.12.0
 
 importers:
 
@@ -25,16 +25,16 @@ importers:
         specifier: ^6.16.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       '@react-router/dev':
-        specifier: ~7.12.0
+        specifier: ^7.12.0
         version: 7.12.0(@react-router/serve@7.12.0(react-router@7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3))(@types/node@22.20.1)(jiti@2.7.0)(react-router@7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
       '@react-router/fs-routes':
-        specifier: ~7.12.0
+        specifier: ^7.12.0
         version: 7.12.0(@react-router/dev@7.12.0(@react-router/serve@7.12.0(react-router@7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3))(@types/node@22.20.1)(jiti@2.7.0)(react-router@7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0))(typescript@5.9.3)
       '@react-router/node':
-        specifier: ~7.12.0
+        specifier: ^7.12.0
         version: 7.12.0(react-router@7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@react-router/serve':
-        specifier: ~7.12.0
+        specifier: ^7.12.0
         version: 7.12.0(react-router@7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(typescript@5.9.3)
       '@shopify/app-bridge-react':
         specifier: ^4.2.4
@@ -64,7 +64,7 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       react-router:
-        specifier: ~7.12.0
+        specifier: ^7.12.0
         version: 7.12.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       vite-tsconfig-paths:
         specifier: ^5.1.4
@@ -1073,7 +1073,7 @@ packages:
     resolution: {integrity: sha512-lwmeOwVm35yyM4w7piWPt+LAHnwt3IhpZfQ3MJGyFBk2kxh7ILBnFMMesoWc1hdj2owdsq0qhnX1wkpcrEjX3g==}
     engines: {node: '>=22.22.0'}
     peerDependencies:
-      react-router: ~7.12.0
+      react-router: ^7.12.0
       vite: '>=6.0.0'
 
   '@nodelib/fs.scandir@2.1.5':
@@ -1215,9 +1215,9 @@ packages:
     engines: {node: '>=20.0.0'}
     hasBin: true
     peerDependencies:
-      '@react-router/serve': ~7.12.0
+      '@react-router/serve': ^7.12.0
       '@vitejs/plugin-rsc': ~0.5.7
-      react-router: ~7.12.0
+      react-router: ^7.12.0
       react-server-dom-webpack: ^19.2.3
       typescript: ^5.1.0
       vite: ^5.1.0 || ^6.0.0 || ^7.0.0
@@ -1239,7 +1239,7 @@ packages:
     engines: {node: '>=20.0.0'}
     peerDependencies:
       express: ^4.17.1 || ^5
-      react-router: ~7.12.0
+      react-router: ^7.12.0
       typescript: ^5.1.0
     peerDependenciesMeta:
       typescript:
@@ -1249,7 +1249,7 @@ packages:
     resolution: {integrity: sha512-otlOIrIsJsqY5ACfgMsIkHPq1rfuvdwxBGWZRSscU+HK+BcHAz8ZDq+wYDGonOLcU6wUn33+G+/1skznIV1L8A==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
-      '@react-router/dev': ~7.12.0
+      '@react-router/dev': ^7.12.0
       typescript: ^5.1.0
     peerDependenciesMeta:
       typescript:
@@ -1259,7 +1259,7 @@ packages:
     resolution: {integrity: sha512-o/t10Cse4LK8kFefqJ8JjC6Ng6YuKD2I87S2AiJs17YAYtXU5W731ZqB73AWyCDd2G14R0dSuqXiASRNK/xLjg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
-      react-router: ~7.12.0
+      react-router: ^7.12.0
       typescript: ^5.1.0
     peerDependenciesMeta:
       typescript:
@@ -1270,7 +1270,7 @@ packages:
     engines: {node: '>=20.0.0'}
     hasBin: true
     peerDependencies:
-      react-router: ~7.12.0
+      react-router: ^7.12.0
 
   '@remix-run/node-fetch-server@0.13.3':
     resolution: {integrity: sha512-UfjOXed/DQteaM5VyTfqTeGpHwyL2J5aoRGY6cydip4tt1ehNNeSwuXCC7AEGE0RWBs/7bgKxYkL/B/+UDe4AA==}
@@ -1483,7 +1483,7 @@ packages:
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
-      react-router: ~7.12.0
+      react-router: ^7.12.0
 
   '@shopify/shopify-app-session-storage-prisma@9.0.1':
     resolution: {integrity: sha512-f/RT4X6hSADfh53dl9+cc0Ev9QcTwy01GoJFnNQRmjpSsNdDq7oBuCFbz/IufU+C9MJ/1wGi5haOr0R7VIcd2Q==}
