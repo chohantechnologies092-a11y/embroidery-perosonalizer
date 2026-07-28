@@ -574,28 +574,133 @@ export default function Orders() {
                 </Box>
               )}
 
-              {/* Parsed Custom Embroidery Details */}
+              {/* Styled Detail Card Boxes Grid */}
               <Box padding="300">
-                <BlockStack gap="200">
-                  <Text as="h4" variant="headingXs" fontWeight="bold">
-                    Personalization Breakdown
+                <BlockStack gap="300">
+                  <Text as="h4" variant="headingSm" fontWeight="bold">
+                    Personalization Details Breakdown
                   </Text>
-                  {selectedDetails.lines.length > 0 && (
-                    <Text as="p" variant="bodyMd">
-                      <strong>Text Lines:</strong>{" "}
-                      {selectedDetails.lines.join(" | ")}
-                    </Text>
-                  )}
-                  <Text as="p" variant="bodyMd">
-                    <strong>Font:</strong> {selectedDetails.font}
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Thread / Fill Color:</strong>{" "}
-                    {selectedDetails.color}
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Frame Size:</strong> {selectedDetails.size}
-                  </Text>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(220px, 1fr))",
+                      gap: "12px",
+                    }}
+                  >
+                    {/* Box 1: Text Lines */}
+                    <div
+                      style={{
+                        padding: "16px",
+                        borderRadius: "10px",
+                        backgroundColor: "#f6f6f7",
+                        border: "1px solid #e1e3e5",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <Text as="h5" variant="headingXs" tone="subdued">
+                        ✍️ EMBROIDERY TEXT
+                      </Text>
+                      <div style={{ marginTop: "6px" }}>
+                        <Text as="p" variant="bodyLg" fontWeight="bold">
+                          {selectedDetails.lines.length > 0
+                            ? selectedDetails.lines.join(" | ")
+                            : selectedDetails.text}
+                        </Text>
+                      </div>
+                    </div>
+
+                    {/* Box 2: Selected Font */}
+                    <div
+                      style={{
+                        padding: "16px",
+                        borderRadius: "10px",
+                        backgroundColor: "#f6f6f7",
+                        border: "1px solid #e1e3e5",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <Text as="h5" variant="headingXs" tone="subdued">
+                        🔤 SELECTED FONT
+                      </Text>
+                      <div style={{ marginTop: "6px" }}>
+                        <span
+                          style={{
+                            fontFamily:
+                              selectedDetails.font !== "-"
+                                ? `"${selectedDetails.font}", sans-serif`
+                                : "sans-serif",
+                            fontSize: "18px",
+                            fontWeight: "bold",
+                            color: "#1a1a1a",
+                          }}
+                        >
+                          {selectedDetails.font}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Box 3: Thread Color */}
+                    <div
+                      style={{
+                        padding: "16px",
+                        borderRadius: "10px",
+                        backgroundColor: "#f6f6f7",
+                        border: "1px solid #e1e3e5",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <Text as="h5" variant="headingXs" tone="subdued">
+                        🧵 THREAD / FILL COLOR
+                      </Text>
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: "16px",
+                            height: "16px",
+                            borderRadius: "50%",
+                            backgroundColor:
+                              selectedDetails.color !== "-"
+                                ? selectedDetails.color
+                                : "#000",
+                            border: "1px solid #ccc",
+                            display: "inline-block",
+                          }}
+                        />
+                        <Text as="p" variant="bodyLg" fontWeight="bold">
+                          {selectedDetails.color}
+                        </Text>
+                      </div>
+                    </div>
+
+                    {/* Box 4: Frame Size & Price */}
+                    <div
+                      style={{
+                        padding: "16px",
+                        borderRadius: "10px",
+                        backgroundColor: "#f6f6f7",
+                        border: "1px solid #e1e3e5",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      <Text as="h5" variant="headingXs" tone="subdued">
+                        📐 FRAME SIZE & ADD-ON
+                      </Text>
+                      <div style={{ marginTop: "6px" }}>
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          {selectedDetails.size}
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
                 </BlockStack>
               </Box>
 
