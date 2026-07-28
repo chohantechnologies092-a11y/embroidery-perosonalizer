@@ -330,6 +330,21 @@ export default function Orders() {
 
   return (
     <Page>
+      <style>{`
+        @font-face {
+          font-family: 'Disneycute';
+          src: url('https://cdn.shopify.com/s/files/1/0759/5386/4882/files/Disneycute.otf?v=1784549011') format('opentype');
+          font-weight: normal;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: 'Relitha';
+          src: url('https://cdn.shopify.com/s/files/1/0759/5386/4882/files/relitha.otf?v=1784549010') format('opentype');
+          font-weight: normal;
+          font-style: normal;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Great+Vibes&family=Pacifico&display=swap');
+      `}</style>
       <TitleBar title="Personalized Orders" />
       <Layout>
         {error && (
@@ -419,7 +434,7 @@ export default function Orders() {
 
               <Divider />
 
-              {/* Visual Embroidery Placement Preview Box */}
+              {/* Visual Embroidery Placement Preview Box with Circular Frame Overlay */}
               {selectedDetails.productImage && (
                 <Box
                   padding="400"
@@ -457,15 +472,37 @@ export default function Orders() {
                         }}
                       />
 
-                      {/* Render Customer Text placed at exact X%, Y% and rotated by Angle */}
-                      {selectedDetails.lines.length > 0 &&
-                        selectedDetails.placement && (
-                          <div
+                      {/* Dotted Circular Frame Overlay placed at exact X%, Y% and rotated by Angle */}
+                      {selectedDetails.placement && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: `${selectedDetails.placement.x}%`,
+                            top: `${selectedDetails.placement.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${selectedDetails.angle}deg)`,
+                            width: "100px",
+                            height: "100px",
+                            borderRadius: "50%",
+                            border: "2px dotted rgba(44, 110, 203, 0.85)",
+                            backgroundColor: "rgba(44, 110, 203, 0.12)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxSizing: "border-box",
+                            pointerEvents: "none",
+                            zIndex: 10,
+                            padding: "6px",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          <span
                             style={{
-                              position: "absolute",
-                              left: `${selectedDetails.placement.x}%`,
-                              top: `${selectedDetails.placement.y}%`,
-                              transform: `translate(-50%, -50%) rotate(${selectedDetails.angle}deg)`,
+                              width: "100%",
+                              height: "100%",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
                               color:
                                 selectedDetails.color !== "-"
                                   ? selectedDetails.color
@@ -474,23 +511,23 @@ export default function Orders() {
                                 selectedDetails.font !== "-"
                                   ? `"${selectedDetails.font}", sans-serif`
                                   : "sans-serif",
-                              fontSize: "22px",
-                              fontWeight: "bold",
+                              fontSize: "16px",
+                              fontWeight: "normal",
                               textAlign: "center",
-                              whiteSpace: "nowrap",
-                              pointerEvents: "none",
-                              border: "1px dashed rgba(0,0,0,0.5)",
-                              padding: "4px 8px",
-                              borderRadius: "4px",
-                              background: "rgba(255,255,255,0.55)",
-                              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                              wordBreak: "break-word",
+                              lineHeight: 1.2,
                             }}
                           >
-                            {selectedDetails.lines.map((line, idx) => (
-                              <div key={idx}>{line}</div>
-                            ))}
-                          </div>
-                        )}
+                            {selectedDetails.lines.length > 0 ? (
+                              selectedDetails.lines.map((line, idx) => (
+                                <div key={idx}>{line}</div>
+                              ))
+                            ) : (
+                              <div>Sample</div>
+                            )}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {selectedDetails.placement && (
