@@ -195,14 +195,19 @@ const parseDetails = (lineItemsEdges: any[]): ParsedDetails => {
             const txt = part.replace(/^text:/i, "").trim();
             if (txt) details.lines.push(txt);
           } else if (lowerPart.match(/^line\s*\d+:/)) {
-            const lineTxt = part.replace(/^line\s*\d+:/i, "").trim();
-            if (lineTxt) {
-              const cleanLine = lineTxt.replace(/\(Frame:[^)]+\)/i, "").trim();
-              if (cleanLine) details.lines.push(cleanLine);
-
-              const frameMatch = lineTxt.match(/\(Frame:\s*([^)]+)\)/i);
-              if (frameMatch && details.size === "-") {
-                details.size = frameMatch[1].trim();
+            const lineContent = part.replace(/^line\s*\d+:/i, "").trim();
+            if (lineContent) {
+              const frameMarker = "(Frame:";
+              const frameIdx = lineContent.indexOf(frameMarker);
+              
+              if (frameIdx !== -1) {
+                const textPart = lineContent.substring(0, frameIdx).trim();
+                const framePart = lineContent.substring(frameIdx + frameMarker.length).replace(/\)+\s*$/, "").trim();
+                
+                if (textPart) details.lines.push(textPart);
+                if (framePart && details.size === "-") details.size = framePart;
+              } else {
+                details.lines.push(lineContent);
               }
             }
           }
