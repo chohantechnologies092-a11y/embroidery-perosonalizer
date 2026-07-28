@@ -35,7 +35,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               id
               name
               createdAt
-              customer { firstName lastName }
+              customer { firstName lastName email }
               lineItems(first: 10) {
                 edges {
                   node {
@@ -57,9 +57,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const allOrders = jsonResponse.data?.orders?.edges || [];
   
   const personalizedOrders = allOrders.filter((o: any) => {
-    return o.node.lineItems.edges.some((li: any) => 
-      li.node.customAttributes.some((attr: any) => attr.key === "Personalization_Details" || attr.key === "Uploaded_Image")
-    );
+    const lineItemsEdges = o?.node?.lineItems?.edges || [];
+    return lineItemsEdges.some((li: any) => {
+      const customAttrs = li?.node?.customAttributes || [];
+      return Array.isArray(customAttrs) && customAttrs.some((attr: any) => 
+        attr?.key === "Personalization_Details" || attr?.key === "Uploaded_Image"
+      );
+    });
   }).map((o: any) => o.node).slice(0, 5);
 
   return { configs, recentOrders: personalizedOrders };
@@ -69,7 +73,15 @@ export default function Index() {
   const { configs, recentOrders } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
-  const ordersRowMarkup = recentOrders.map(
+  const getCustomerName = (customer: any) => {
+    if (!customer) return "Guest";
+    const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim();
+    return name || customer.email || "Guest";
+  };
+
+  const safeRecentOrders = recentOrders || [];
+
+  const ordersRowMarkup = safeRecentOrders.map(
     ({ id, name, createdAt, customer }: any, index: number) => (
       <IndexTable.Row id={id} key={id} position={index}>
         <IndexTable.Cell>
@@ -77,9 +89,9 @@ export default function Index() {
             {name}
           </Text>
         </IndexTable.Cell>
-        <IndexTable.Cell>{new Date(createdAt).toLocaleDateString()}</IndexTable.Cell>
+        <IndexTable.Cell>{createdAt ? new Date(createdAt).toLocaleDateString() : "-"}</IndexTable.Cell>
         <IndexTable.Cell>
-          {customer ? `${customer.firstName} ${customer.lastName}` : "Guest"}
+          {getCustomerName(customer)}
         </IndexTable.Cell>
         <IndexTable.Cell>
           <Button size="micro" onClick={() => navigate('/app/orders')}>
@@ -169,25 +181,5 @@ export default function Index() {
 export const headers = boundary.headers;
 
 export function ErrorBoundary() {
-  const error = useRouteError();
-  let message = "Unknown Error";
-  if (isRouteErrorResponse(error)) {
-    message = `${error.status} ${error.statusText} - ${error.data}`;
-  } else if (error instanceof Error) {
-    message = error.message;
-  }
-  return (
-    <Page>
-      <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">An error occurred</Text>
-              <Text as="p" variant="bodyMd">{message}</Text>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-      </Layout>
-    </Page>
-  );
+  return boundary.error(useRouteError());
 }
