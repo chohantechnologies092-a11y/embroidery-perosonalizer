@@ -30,7 +30,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                 id
                 name
                 createdAt
-                customer { firstName lastName email }
                 lineItems(first: 20) {
                   edges {
                     node {
@@ -51,6 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const jsonResponse = (await response.json()) as any;
     if (jsonResponse.errors) {
       console.error("[Orders Loader] GraphQL errors:", jsonResponse.errors);
+      // If errors, log them but try to extract data if present
     }
 
     const allOrders = jsonResponse.data?.orders?.edges || [];
@@ -131,9 +131,6 @@ export default function Orders() {
         </IndexTable.Cell>
         <IndexTable.Cell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "-"}</IndexTable.Cell>
         <IndexTable.Cell>
-          {getCustomerName(order.customer)}
-        </IndexTable.Cell>
-        <IndexTable.Cell>
           <Badge tone={details.type === 'Text' ? 'info' : 'success'}>
             {details.type}
           </Badge>
@@ -179,7 +176,6 @@ export default function Orders() {
                 headings={[
                   { title: 'Order' },
                   { title: 'Date' },
-                  { title: 'Customer' },
                   { title: 'Type' },
                   { title: 'Text / Image' },
                   { title: 'Font' },
