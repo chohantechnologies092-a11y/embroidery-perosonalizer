@@ -24,7 +24,7 @@ jobs:
       TEMP_BRANCH: temp_${{ inputs.target-branch }}_updates
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.source-branch }}
 
