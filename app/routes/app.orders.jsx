@@ -1,22 +1,30 @@
-import { useLoaderData, useNavigate, useRouteError } from "react-router";
+import { useState } from "react";
+import { useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import {
   Page,
   Layout,
   Card,
   Text,
+  BlockStack,
+  InlineStack,
   EmptyState,
   IndexTable,
   Badge,
   Link,
   Banner,
+  Button,
+  Modal,
+  Box,
+  Divider,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
   try {
-    const { admin } = await authenticate.admin(request);
+    const { admin, session } = await authenticate.admin(request);
+    const shop = session.shop;
     // Fetch orders containing personalization
     const response = await admin.graphql(`#graphql
         query getPersonalizedOrders {
@@ -45,7 +53,6 @@ export const loader = async ({ request }) => {
 
     if (jsonResponse.errors) {
       console.error("[Orders Loader] GraphQL errors:", jsonResponse.errors);
-      // If errors, log them but try to extract data if present
     }
 
     const allOrders = jsonResponse.data?.orders?.edges || [];
@@ -58,93 +65,167 @@ export const loader = async ({ request }) => {
 
           return (
             Array.isArray(customAttrs) &&
-            customAttrs.some(
-              (attr) =>
-                attr?.key === "Personalization_Details" ||
-                attr?.key === "Uploaded_Image",
-            )
+            customAttrs.some((attr) => {
+              const k = (attr?.key || "").toLowerCase();
+              const v = (attr?.value || "").toLowerCase();
+
+              return (
+                k.includes("personalization") ||
+                k.includes("image") ||
+                k.includes("custom") ||
+                v.includes("font") ||
+                v.includes("http")
+              );
+            })
           );
         });
       })
       .map((o) => o.node);
 
-    return { orders: personalizedOrders, error: null };
+    return { orders: personalizedOrders, shop, error: null };
   } catch (err) {
     console.error("[Orders Loader Exception]:", err);
 
-    return { orders: [], error: err?.message || "Failed to fetch orders" };
+    return {
+      orders: [],
+      shop: "",
+      error: err?.message || "Failed to fetch orders",
+    };
   }
 };
 
-export default function Orders() {
-  const { orders, error } = useLoaderData();
-  const navigate = useNavigate();
-
-  const getCustomerName = (customer) => {
-    if (!customer) return "Guest";
-    const fullName = [customer.firstName, customer.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
-    return fullName || customer.email || "Guest";
+const parseDetails = (lineItemsEdges) => {
+  const details = {
+    type: "None",
+    text: "-",
+    lines: [],
+    font: "-",
+    color: "-",
+    size: "-",
+    image: null,
+    allAttributes: [],
   };
 
-  // Helper to parse the custom attributes
-  const parseDetails = (lineItemsEdges) => {
-    const details = {
-      type: "None",
-      text: "-",
-      font: "-",
-      color: "-",
-      size: "-",
-      image: null,
-    };
+  if (!Array.isArray(lineItemsEdges)) return details;
 
-    if (!Array.isArray(lineItemsEdges)) return details;
+  for (const li of lineItemsEdges) {
+    const customAttrs = li?.node?.customAttributes || [];
 
-    for (const li of lineItemsEdges) {
-      const customAttrs = li?.node?.customAttributes || [];
+    if (!Array.isArray(customAttrs)) continue;
 
-      if (!Array.isArray(customAttrs)) continue;
+    for (const attr of customAttrs) {
+      if (!attr || !attr.key) continue;
+      const rawKey = attr.key.trim();
+      const rawVal = (attr.value || "").trim();
 
-      for (const attr of customAttrs) {
-        if (!attr || !attr.key) continue;
+      if (!rawVal) continue;
+      details.allAttributes.push({ key: rawKey, value: rawVal });
+      const keyLower = rawKey.toLowerCase();
 
-        if (attr.key === "Uploaded_Image") {
-          details.type = "Image";
-          details.image = attr.value;
-        }
-
-        if (attr.key === "Personalization_Details" && attr.value) {
-          const parts = attr.value.split("|").map((p) => p.trim());
-
-          parts.forEach((p) => {
-            if (p.startsWith("Text:"))
-              details.text = p.replace("Text:", "").trim();
-            if (p.startsWith("Font:"))
-              details.font = p.replace("Font:", "").trim();
-            if (p.startsWith("Color:"))
-              details.color = p.replace("Color:", "").trim();
-            if (p.startsWith("Size:"))
-              details.size = p.replace("Size:", "").trim();
-
-            if (p.startsWith("Type:")) {
-              details.type = p.replace("Type:", "").trim();
-            }
-          });
-
-          if (details.type === "None" && details.text !== "-") {
-            details.type = "Text";
-          }
+      // Image URL detection
+      if (
+        keyLower.includes("image") ||
+        keyLower.includes("photo") ||
+        keyLower.includes("file") ||
+        rawVal.startsWith("http://") ||
+        rawVal.startsWith("https://") ||
+        rawVal.startsWith("//cdn.shopify") ||
+        rawVal.startsWith("data:image")
+      ) {
+        if (
+          rawVal.startsWith("http") ||
+          rawVal.startsWith("//") ||
+          rawVal.startsWith("data:image")
+        ) {
+          details.image = rawVal.startsWith("//") ? `https:${rawVal}` : rawVal;
+          details.type = "Image Upload";
         }
       }
+
+      // Personalization details parsing
+      if (
+        keyLower.includes("personalization") ||
+        keyLower.includes("details") ||
+        keyLower.includes("custom") ||
+        keyLower.includes("text") ||
+        rawVal.includes("Color:") ||
+        rawVal.includes("Font:")
+      ) {
+        const parts = rawVal.split("|").map((p) => p.trim());
+
+        parts.forEach((part) => {
+          const lowerPart = part.toLowerCase();
+
+          if (lowerPart.startsWith("type:")) {
+            details.type = part.replace(/^type:/i, "").trim();
+          } else if (lowerPart.startsWith("font:")) {
+            details.font = part.replace(/^font:/i, "").trim();
+          } else if (lowerPart.startsWith("color:")) {
+            details.color = part.replace(/^color:/i, "").trim();
+          } else if (
+            lowerPart.startsWith("size:") ||
+            lowerPart.startsWith("frame:")
+          ) {
+            details.size = part.replace(/^(size|frame):/i, "").trim();
+          } else if (lowerPart.startsWith("text:")) {
+            const txt = part.replace(/^text:/i, "").trim();
+
+            if (txt) details.lines.push(txt);
+          } else if (lowerPart.match(/^line\s*\d+:/)) {
+            const lineTxt = part.replace(/^line\s*\d+:/i, "").trim();
+
+            if (lineTxt) {
+              details.lines.push(lineTxt);
+              const frameMatch = lineTxt.match(/\(Frame:\s*([^)]+)\)/i);
+
+              if (frameMatch && details.size === "-") {
+                details.size = frameMatch[1].trim();
+              }
+            }
+          }
+        });
+      }
+    }
+  }
+
+  if (details.lines.length > 0) {
+    details.text = details.lines.join(" | ");
+  }
+
+  if (details.type === "None" || details.type.toLowerCase() === "none") {
+    if (details.image) {
+      details.type = "Image Upload";
+    } else if (
+      details.text !== "-" ||
+      details.font !== "-" ||
+      details.color !== "-"
+    ) {
+      details.type = "Text";
+    }
+  }
+
+  return details;
+};
+
+export default function Orders() {
+  const { orders, shop, error } = useLoaderData();
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const safeOrders = orders || [];
+
+  const getAdminOrderUrl = (orderId) => {
+    const numericId = orderId.split("/").pop();
+    const cleanShop = (shop || "").replace(".myshopify.com", "");
+
+    if (cleanShop && numericId) {
+      return `https://admin.shopify.com/store/${cleanShop}/orders/${numericId}`;
     }
 
-    return details;
+    return null;
   };
 
-  const safeOrders = orders || [];
+  const selectedDetails = selectedOrder
+    ? parseDetails(selectedOrder?.lineItems?.edges || [])
+    : null;
   const ordersRowMarkup = safeOrders.map((order, index) => {
     const lineItemsEdges = order?.lineItems?.edges || [];
     const details = parseDetails(lineItemsEdges);
@@ -162,15 +243,32 @@ export default function Orders() {
             : "-"}
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <Badge tone={details.type === "Text" ? "info" : "success"}>
+          <Badge
+            tone={
+              details.type.toLowerCase().includes("image") ? "success" : "info"
+            }
+          >
             {details.type}
           </Badge>
         </IndexTable.Cell>
         <IndexTable.Cell>
           {details.image ? (
-            <Link url={details.image} target="_blank">
-              View Image
-            </Link>
+            <InlineStack gap="200" align="start" blockAlign="center">
+              <img
+                src={details.image}
+                alt="Personalization preview"
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  objectFit: "cover",
+                  borderRadius: "6px",
+                  border: "1px solid #e1e3e5",
+                }}
+              />
+              <Link url={details.image} target="_blank">
+                View Image
+              </Link>
+            </InlineStack>
           ) : (
             <Text variant="bodyMd" fontWeight="semibold" as="span">
               {details.text}
@@ -180,6 +278,11 @@ export default function Orders() {
         <IndexTable.Cell>{details.font}</IndexTable.Cell>
         <IndexTable.Cell>{details.color}</IndexTable.Cell>
         <IndexTable.Cell>{details.size}</IndexTable.Cell>
+        <IndexTable.Cell>
+          <Button size="micro" onClick={() => setSelectedOrder(order)}>
+            View Details
+          </Button>
+        </IndexTable.Cell>
       </IndexTable.Row>
     );
   });
@@ -219,6 +322,7 @@ export default function Orders() {
                   { title: "Font" },
                   { title: "Color" },
                   { title: "Frame Size" },
+                  { title: "Action" },
                 ]}
                 selectable={false}
               >
@@ -228,6 +332,137 @@ export default function Orders() {
           </Card>
         </Layout.Section>
       </Layout>
+
+      {/* Order Details Modal */}
+      {selectedOrder && selectedDetails && (
+        <Modal
+          open={Boolean(selectedOrder)}
+          onClose={() => setSelectedOrder(null)}
+          title={`Order Details - ${selectedOrder.name}`}
+          primaryAction={
+            getAdminOrderUrl(selectedOrder.id)
+              ? {
+                  content: "Open Order in Shopify Admin",
+                  onAction: () => {
+                    const url = getAdminOrderUrl(selectedOrder.id);
+
+                    if (url) window.open(url, "_blank");
+                  },
+                }
+              : undefined
+          }
+          secondaryActions={[
+            {
+              content: "Close",
+              onAction: () => setSelectedOrder(null),
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              <InlineStack align="space-between">
+                <Text as="h3" variant="headingSm">
+                  Order Date:{" "}
+                  {new Date(selectedOrder.createdAt).toLocaleString()}
+                </Text>
+                <Badge
+                  tone={
+                    selectedDetails.type.toLowerCase().includes("image")
+                      ? "success"
+                      : "info"
+                  }
+                >
+                  {selectedDetails.type}
+                </Badge>
+              </InlineStack>
+
+              <Divider />
+
+              {/* Uploaded Image Box */}
+              {selectedDetails.image && (
+                <Box
+                  padding="400"
+                  background="bg-surface-secondary"
+                  borderRadius="300"
+                >
+                  <BlockStack gap="200" align="center">
+                    <Text as="h4" variant="headingXs" fontWeight="bold">
+                      Uploaded Custom Image
+                    </Text>
+                    <img
+                      src={selectedDetails.image}
+                      alt="Uploaded embroidery preview"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "300px",
+                        borderRadius: "8px",
+                        border: "1px solid #ccc",
+                      }}
+                    />
+                    <Link url={selectedDetails.image} target="_blank">
+                      Download / Open Full High-Res Image
+                    </Link>
+                  </BlockStack>
+                </Box>
+              )}
+
+              {/* Parsed Custom Embroidery Details */}
+              <Box padding="300">
+                <BlockStack gap="200">
+                  <Text as="h4" variant="headingXs" fontWeight="bold">
+                    Personalization Breakdown
+                  </Text>
+                  {selectedDetails.lines.length > 0 && (
+                    <Text as="p" variant="bodyMd">
+                      <strong>Text Lines:</strong>{" "}
+                      {selectedDetails.lines.join(" | ")}
+                    </Text>
+                  )}
+                  <Text as="p" variant="bodyMd">
+                    <strong>Font:</strong> {selectedDetails.font}
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Thread / Fill Color:</strong>{" "}
+                    {selectedDetails.color}
+                  </Text>
+                  <Text as="p" variant="bodyMd">
+                    <strong>Frame Size:</strong> {selectedDetails.size}
+                  </Text>
+                </BlockStack>
+              </Box>
+
+              <Divider />
+
+              {/* Raw Custom Attributes List */}
+              <Box padding="300">
+                <BlockStack gap="200">
+                  <Text as="h4" variant="headingXs" fontWeight="bold">
+                    All Custom Line Item Attributes
+                  </Text>
+                  {selectedDetails.allAttributes.length === 0 ? (
+                    <Text as="p" tone="subdued">
+                      No raw attributes found.
+                    </Text>
+                  ) : (
+                    selectedDetails.allAttributes.map((attr, idx) => (
+                      <Box
+                        key={idx}
+                        padding="200"
+                        background="bg-surface-tertiary"
+                        borderRadius="100"
+                      >
+                        <Text as="p" variant="bodySm">
+                          <strong>{attr.key}:</strong> {attr.value}
+                        </Text>
+                      </Box>
+                    ))
+                  )}
+                </BlockStack>
+              </Box>
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+      )}
     </Page>
   );
 }
