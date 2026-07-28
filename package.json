@@ -52,13 +52,6 @@
       "@react-router/serve": "^7.12.0"
     }
   },
-  "overrides": {
-    "react-router": "^7.12.0",
-    "@react-router/dev": "^7.12.0",
-    "@react-router/fs-routes": "^7.12.0",
-    "@react-router/node": "^7.12.0",
-    "@react-router/serve": "^7.12.0"
-  },
   "devDependencies": {
     "@shopify/api-codegen-preset": "^1.2.0",
     "@shopify/polaris-types": "^1.0.1",
@@ -82,10 +75,12 @@
   "workspaces": [
     "extensions/*"
   ],
-  "trustedDependencies": [
-    "@shopify/plugin-cloudflare"
-  ],
   "overrides": {
+    "react-router": "^7.12.0",
+    "@react-router/dev": "^7.12.0",
+    "@react-router/fs-routes": "^7.12.0",
+    "@react-router/node": "^7.12.0",
+    "@react-router/serve": "^7.12.0",
     "p-map": "^4.0.0"
   },
   "author": "M JUNAID AHSAN"
