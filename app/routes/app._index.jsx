@@ -29,7 +29,6 @@ export const loader = async ({ request }) => {
               id
               name
               createdAt
-              customer { firstName lastName email }
               lineItems(first: 10) {
                 edges {
                   node {
@@ -73,20 +72,9 @@ export const loader = async ({ request }) => {
 export default function Index() {
   const { configs, recentOrders } = useLoaderData();
   const navigate = useNavigate();
-
-  const getCustomerName = (customer) => {
-    if (!customer) return "Guest";
-    const name = [customer.firstName, customer.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
-    return name || customer.email || "Guest";
-  };
-
   const safeRecentOrders = recentOrders || [];
   const ordersRowMarkup = safeRecentOrders.map(
-    ({ id, name, createdAt, customer }, index) => (
+    ({ id, name, createdAt }, index) => (
       <IndexTable.Row id={id} key={id} position={index}>
         <IndexTable.Cell>
           <Text variant="bodyMd" fontWeight="bold" as="span">
@@ -96,7 +84,6 @@ export default function Index() {
         <IndexTable.Cell>
           {createdAt ? new Date(createdAt).toLocaleDateString() : "-"}
         </IndexTable.Cell>
-        <IndexTable.Cell>{getCustomerName(customer)}</IndexTable.Cell>
         <IndexTable.Cell>
           <Button size="micro" onClick={() => navigate("/app/orders")}>
             View Details
@@ -173,7 +160,6 @@ export default function Index() {
                   headings={[
                     { title: "Order" },
                     { title: "Date" },
-                    { title: "Customer" },
                     { title: "Action" },
                   ]}
                   selectable={false}
