@@ -234,6 +234,7 @@ const parseDetails = (lineItemsEdges: any[]): ParsedDetails => {
 export default function Orders() {
   const { orders, shop, error } = useLoaderData<typeof loader>();
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const safeOrders = orders || [];
 
@@ -249,6 +250,10 @@ export default function Orders() {
   const selectedDetails = selectedOrder
     ? parseDetails(selectedOrder?.lineItems?.edges || [])
     : null;
+
+  // Counts for Metrics Cards
+  const textOrdersCount = safeOrders.filter((o: any) => !parseDetails(o?.lineItems?.edges || []).type.toLowerCase().includes('image')).length;
+  const imageOrdersCount = safeOrders.length - textOrdersCount;
 
   const ordersRowMarkup = safeOrders.map((order: any, index: number) => {
     const lineItemsEdges = order?.lineItems?.edges || [];
@@ -310,45 +315,253 @@ export default function Orders() {
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Great+Vibes&family=Pacifico&display=swap');
       `}</style>
       <TitleBar title="Personalized Orders" />
-      <Layout>
+      
+      <BlockStack gap="500">
         {error && (
-          <Layout.Section>
-            <Banner tone="critical" title="Unable to fetch recent orders">
-              <p>{error}</p>
-            </Banner>
-          </Layout.Section>
+          <Banner tone="critical" title="Unable to fetch recent orders">
+            <p>{error}</p>
+          </Banner>
         )}
-        <Layout.Section>
+
+        {/* Top Summary Metrics Cards */}
+        <Layout>
+          <Layout.Section variant="oneThird">
+            <Card background="bg-surface-secondary">
+              <BlockStack gap="100">
+                <Text as="h3" variant="headingSm" tone="subdued">Total Personalized Orders</Text>
+                <Text as="p" variant="heading2xl">{safeOrders.length}</Text>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+          <Layout.Section variant="oneThird">
+            <Card background="bg-surface-info">
+              <BlockStack gap="100">
+                <Text as="h3" variant="headingSm">Text Embroidery Orders</Text>
+                <Text as="p" variant="heading2xl">{textOrdersCount}</Text>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+          <Layout.Section variant="oneThird">
+            <Card background="bg-surface-success">
+              <BlockStack gap="100">
+                <Text as="h3" variant="headingSm">Image Upload Orders</Text>
+                <Text as="p" variant="heading2xl" tone="success">{imageOrdersCount}</Text>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        </Layout>
+
+        {/* View Switcher & Title */}
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="h2" variant="headingLg">Order Personalization Records</Text>
+          <InlineStack gap="200">
+            <Button
+              pressed={viewMode === "cards"}
+              onClick={() => setViewMode("cards")}
+            >
+              📦 Cards (Boxes) View
+            </Button>
+            <Button
+              pressed={viewMode === "table"}
+              onClick={() => setViewMode("table")}
+            >
+              📊 Table View
+            </Button>
+          </InlineStack>
+        </InlineStack>
+
+        {/* Empty State */}
+        {safeOrders.length === 0 ? (
           <Card padding="0">
-            {safeOrders.length === 0 ? (
-              <EmptyState
-                heading="No personalized orders found in recent orders"
-                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-              >
-                <p>Orders containing custom embroidery will appear here automatically.</p>
-              </EmptyState>
-            ) : (
-              <IndexTable
-                resourceName={{ singular: 'order', plural: 'orders' }}
-                itemCount={safeOrders.length}
-                headings={[
-                  { title: 'Order' },
-                  { title: 'Date' },
-                  { title: 'Type' },
-                  { title: 'Text / Image' },
-                  { title: 'Font' },
-                  { title: 'Color' },
-                  { title: 'Frame Size' },
-                  { title: 'Action' },
-                ]}
-                selectable={false}
-              >
-                {ordersRowMarkup}
-              </IndexTable>
-            )}
+            <EmptyState
+              heading="No personalized orders found in recent orders"
+              image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+            >
+              <p>Orders containing custom embroidery will appear here automatically.</p>
+            </EmptyState>
           </Card>
-        </Layout.Section>
-      </Layout>
+        ) : viewMode === "cards" ? (
+          /* Cards (Detail Boxes) View Layout */
+          <BlockStack gap="400">
+            {safeOrders.map((order: any) => {
+              const details = parseDetails(order?.lineItems?.edges || []);
+              const adminUrl = getAdminOrderUrl(order.id);
+
+              return (
+                <Card key={order.id} padding="400">
+                  <BlockStack gap="400">
+                    {/* Header bar inside Order Card */}
+                    <InlineStack align="space-between" blockAlign="center">
+                      <InlineStack gap="300" align="start" blockAlign="center">
+                        <Text as="h2" variant="headingMd" fontWeight="bold">
+                          Order {order.name}
+                        </Text>
+                        <Badge tone={details.type.toLowerCase().includes('image') ? 'success' : 'info'}>
+                          {details.type}
+                        </Badge>
+                      </InlineStack>
+
+                      <InlineStack gap="200" align="end" blockAlign="center">
+                        <Text as="span" tone="subdued" variant="bodySm">
+                          📅 {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "-"}
+                        </Text>
+                        <Button size="slim" variant="primary" onClick={() => setSelectedOrder(order)}>
+                          View Full Details
+                        </Button>
+                        {adminUrl && (
+                          <Button size="slim" onClick={() => window.open(adminUrl, "_blank")}>
+                            Shopify Admin ↗
+                          </Button>
+                        )}
+                      </InlineStack>
+                    </InlineStack>
+
+                    <Divider />
+
+                    {/* Detail Cards / Boxes Grid for this Order */}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                        gap: "12px",
+                      }}
+                    >
+                      {/* Box 1: Text / Image */}
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "10px",
+                          backgroundColor: "#f6f6f7",
+                          border: "1px solid #e1e3e5",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Text as="h4" variant="headingXs" tone="subdued">
+                          ✍️ EMBROIDERY TEXT / IMAGE
+                        </Text>
+                        <div style={{ marginTop: "6px" }}>
+                          {details.image ? (
+                            <InlineStack gap="200" blockAlign="center">
+                              <img
+                                src={details.image}
+                                alt="Preview"
+                                style={{ width: "36px", height: "36px", objectFit: "cover", borderRadius: "6px", border: "1px solid #ccc" }}
+                              />
+                              <Link url={details.image} target="_blank">View Custom Image</Link>
+                            </InlineStack>
+                          ) : (
+                            <Text as="p" variant="bodyLg" fontWeight="bold">
+                              {details.text}
+                            </Text>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Box 2: Font */}
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "10px",
+                          backgroundColor: "#f6f6f7",
+                          border: "1px solid #e1e3e5",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Text as="h4" variant="headingXs" tone="subdued">
+                          🔤 SELECTED FONT
+                        </Text>
+                        <div style={{ marginTop: "6px" }}>
+                          <span
+                            style={{
+                              fontFamily: details.font !== "-" ? `"${details.font}", sans-serif` : "sans-serif",
+                              fontSize: "17px",
+                              fontWeight: "bold",
+                              color: "#111",
+                            }}
+                          >
+                            {details.font}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Box 3: Thread Color */}
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "10px",
+                          backgroundColor: "#f6f6f7",
+                          border: "1px solid #e1e3e5",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Text as="h4" variant="headingXs" tone="subdued">
+                          🧵 THREAD / FILL COLOR
+                        </Text>
+                        <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span
+                            style={{
+                              width: "16px",
+                              height: "16px",
+                              borderRadius: "50%",
+                              backgroundColor: details.color !== "-" ? details.color : "#000",
+                              border: "1px solid #aaa",
+                              display: "inline-block",
+                            }}
+                          />
+                          <Text as="p" variant="bodyLg" fontWeight="bold">
+                            {details.color}
+                          </Text>
+                        </div>
+                      </div>
+
+                      {/* Box 4: Frame Size & Price */}
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "10px",
+                          backgroundColor: "#f6f6f7",
+                          border: "1px solid #e1e3e5",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        <Text as="h4" variant="headingXs" tone="subdued">
+                          📐 FRAME SIZE & ADD-ON
+                        </Text>
+                        <div style={{ marginTop: "6px" }}>
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            {details.size}
+                          </Text>
+                        </div>
+                      </div>
+                    </div>
+                  </BlockStack>
+                </Card>
+              );
+            })}
+          </BlockStack>
+        ) : (
+          /* Table View Fallback */
+          <Card padding="0">
+            <IndexTable
+              resourceName={{ singular: 'order', plural: 'orders' }}
+              itemCount={safeOrders.length}
+              headings={[
+                { title: 'Order' },
+                { title: 'Date' },
+                { title: 'Type' },
+                { title: 'Text / Image' },
+                { title: 'Font' },
+                { title: 'Color' },
+                { title: 'Frame Size' },
+                { title: 'Action' },
+              ]}
+              selectable={false}
+            >
+              {ordersRowMarkup}
+            </IndexTable>
+          </Card>
+        )}
+      </BlockStack>
 
       {/* Order Details Modal */}
       {selectedOrder && selectedDetails && (
