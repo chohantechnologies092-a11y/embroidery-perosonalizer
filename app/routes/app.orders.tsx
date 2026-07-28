@@ -42,6 +42,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                   edges {
                     node {
                       title
+                      variant {
+                        image {
+                          url
+                        }
+                      }
+                      product {
+                        featuredImage {
+                          url
+                        }
+                      }
                       customAttributes {
                         key
                         value
@@ -89,6 +99,9 @@ interface ParsedDetails {
   color: string;
   size: string;
   image: string | null;
+  productImage: string | null;
+  placement: { x: number; y: number } | null;
+  angle: number;
   allAttributes: { key: string; value: string }[];
 }
 
@@ -101,12 +114,20 @@ const parseDetails = (lineItemsEdges: any[]): ParsedDetails => {
     color: "-",
     size: "-",
     image: null,
+    productImage: null,
+    placement: null,
+    angle: 0,
     allAttributes: [],
   };
 
   if (!Array.isArray(lineItemsEdges)) return details;
 
   for (const li of lineItemsEdges) {
+    const pImg = li?.node?.variant?.image?.url || li?.node?.product?.featuredImage?.url;
+    if (pImg && !details.productImage) {
+      details.productImage = pImg;
+    }
+
     const customAttrs = li?.node?.customAttributes || [];
     if (!Array.isArray(customAttrs)) continue;
 
@@ -143,7 +164,8 @@ const parseDetails = (lineItemsEdges: any[]): ParsedDetails => {
         keyLower.includes("custom") ||
         keyLower.includes("text") ||
         rawVal.includes("Color:") ||
-        rawVal.includes("Font:")
+        rawVal.includes("Font:") ||
+        rawVal.includes("Placement:")
       ) {
         const parts = rawVal.split("|").map((p: string) => p.trim());
         parts.forEach((part: string) => {
@@ -156,13 +178,28 @@ const parseDetails = (lineItemsEdges: any[]): ParsedDetails => {
             details.color = part.replace(/^color:/i, "").trim();
           } else if (lowerPart.startsWith("size:") || lowerPart.startsWith("frame:")) {
             details.size = part.replace(/^(size|frame):/i, "").trim();
+          } else if (lowerPart.startsWith("angle:")) {
+            const angleStr = part.replace(/^angle:/i, "").replace("°", "").trim();
+            const parsedAngle = parseFloat(angleStr);
+            if (!isNaN(parsedAngle)) details.angle = parsedAngle;
+          } else if (lowerPart.startsWith("placement:")) {
+            const matchX = part.match(/X:\s*(\d+(?:\.\d+)?)%/i);
+            const matchY = part.match(/Y:\s*(\d+(?:\.\d+)?)%/i);
+            if (matchX && matchY) {
+              details.placement = {
+                x: parseFloat(matchX[1]),
+                y: parseFloat(matchY[1]),
+              };
+            }
           } else if (lowerPart.startsWith("text:")) {
             const txt = part.replace(/^text:/i, "").trim();
             if (txt) details.lines.push(txt);
           } else if (lowerPart.match(/^line\s*\d+:/)) {
             const lineTxt = part.replace(/^line\s*\d+:/i, "").trim();
             if (lineTxt) {
-              details.lines.push(lineTxt);
+              const cleanLine = lineTxt.replace(/\(Frame:[^)]+\)/i, "").trim();
+              if (cleanLine) details.lines.push(cleanLine);
+
               const frameMatch = lineTxt.match(/\(Frame:\s*([^)]+)\)/i);
               if (frameMatch && details.size === "-") {
                 details.size = frameMatch[1].trim();
@@ -327,6 +364,73 @@ export default function Orders() {
               </InlineStack>
 
               <Divider />
+
+              {/* Visual Embroidery Placement Preview Box */}
+              {selectedDetails.productImage && (
+                <Box padding="400" background="bg-surface-secondary" borderRadius="300">
+                  <BlockStack gap="200" align="center">
+                    <Text as="h4" variant="headingXs" fontWeight="bold">
+                      Visual Placement Preview (Where Customer Placed Embroidery)
+                    </Text>
+                    <div
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        maxWidth: "360px",
+                        height: "360px",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        border: "2px solid #ddd",
+                        backgroundColor: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto",
+                      }}
+                    >
+                      <img
+                        src={selectedDetails.productImage}
+                        alt="Product base"
+                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                      />
+
+                      {/* Render Customer Text placed at exact X%, Y% and rotated by Angle */}
+                      {selectedDetails.lines.length > 0 && selectedDetails.placement && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: `${selectedDetails.placement.x}%`,
+                            top: `${selectedDetails.placement.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${selectedDetails.angle}deg)`,
+                            color: selectedDetails.color !== "-" ? selectedDetails.color : "#000",
+                            fontFamily: selectedDetails.font !== "-" ? `"${selectedDetails.font}", sans-serif` : "sans-serif",
+                            fontSize: "22px",
+                            fontWeight: "bold",
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                            pointerEvents: "none",
+                            border: "1px dashed rgba(0,0,0,0.5)",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            background: "rgba(255,255,255,0.55)",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                          }}
+                        >
+                          {selectedDetails.lines.map((line, idx) => (
+                            <div key={idx}>{line}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedDetails.placement && (
+                      <Badge tone="info">
+                        {`Placement: X ${selectedDetails.placement.x}%, Y ${selectedDetails.placement.y}% | Rotation: ${selectedDetails.angle}°`}
+                      </Badge>
+                    )}
+                  </BlockStack>
+                </Box>
+              )}
 
               {/* Uploaded Image Box */}
               {selectedDetails.image && (
