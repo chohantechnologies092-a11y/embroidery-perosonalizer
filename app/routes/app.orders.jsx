@@ -1,74 +1,97 @@
-import {
-  useLoaderData,
-  useNavigate,
-  useRouteError,
-  isRouteErrorResponse,
-} from "react-router";
+import { useLoaderData, useNavigate, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import {
   Page,
   Layout,
   Card,
   Text,
-  BlockStack,
   EmptyState,
   IndexTable,
   Badge,
   Link,
+  Banner,
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  // Fetch orders containing personalization
-  const response = await admin.graphql(`#graphql
-      query getPersonalizedOrders {
-        orders(first: 50, sortKey: CREATED_AT, reverse: true) {
-          edges {
-            node {
-              id
-              name
-              createdAt
-              customer { firstName lastName }
-              lineItems(first: 10) {
-                edges {
-                  node {
-                    title
-                    customAttributes {
-                      key
-                      value
+  try {
+    const { admin } = await authenticate.admin(request);
+    // Fetch orders containing personalization
+    const response = await admin.graphql(`#graphql
+        query getPersonalizedOrders {
+          orders(first: 50, sortKey: CREATED_AT, reverse: true) {
+            edges {
+              node {
+                id
+                name
+                createdAt
+                customer { firstName lastName email }
+                lineItems(first: 20) {
+                  edges {
+                    node {
+                      title
+                      customAttributes {
+                        key
+                        value
+                      }
                     }
                   }
                 }
               }
             }
           }
-        }
-      }`);
-  const jsonResponse = await response.json();
-  const allOrders = jsonResponse.data?.orders?.edges || [];
-  const personalizedOrders = allOrders
-    .filter((o) => {
-      return o.node.lineItems.edges.some((li) =>
-        li.node.customAttributes.some(
-          (attr) =>
-            attr.key === "Personalization_Details" ||
-            attr.key === "Uploaded_Image",
-        ),
-      );
-    })
-    .map((o) => o.node);
+        }`);
+    const jsonResponse = await response.json();
 
-  return { orders: personalizedOrders };
+    if (jsonResponse.errors) {
+      console.error("[Orders Loader] GraphQL errors:", jsonResponse.errors);
+    }
+
+    const allOrders = jsonResponse.data?.orders?.edges || [];
+    const personalizedOrders = allOrders
+      .filter((o) => {
+        const lineItemsEdges = o?.node?.lineItems?.edges || [];
+
+        return lineItemsEdges.some((li) => {
+          const customAttrs = li?.node?.customAttributes || [];
+
+          return (
+            Array.isArray(customAttrs) &&
+            customAttrs.some(
+              (attr) =>
+                attr?.key === "Personalization_Details" ||
+                attr?.key === "Uploaded_Image",
+            )
+          );
+        });
+      })
+      .map((o) => o.node);
+
+    return { orders: personalizedOrders, error: null };
+  } catch (err) {
+    console.error("[Orders Loader Exception]:", err);
+
+    return { orders: [], error: err?.message || "Failed to fetch orders" };
+  }
 };
 
 export default function Orders() {
-  const { orders } = useLoaderData();
+  const { orders, error } = useLoaderData();
   const navigate = useNavigate();
 
+  const getCustomerName = (customer) => {
+    if (!customer) return "Guest";
+    const fullName = [customer.firstName, customer.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return fullName || customer.email || "Guest";
+  };
+
   // Helper to parse the custom attributes
-  const parseDetails = (lineItems) => {
+  const parseDetails = (lineItemsEdges) => {
     const details = {
       type: "None",
       text: "-",
@@ -78,14 +101,22 @@ export default function Orders() {
       image: null,
     };
 
-    for (const li of lineItems) {
-      for (const attr of li.node.customAttributes) {
+    if (!Array.isArray(lineItemsEdges)) return details;
+
+    for (const li of lineItemsEdges) {
+      const customAttrs = li?.node?.customAttributes || [];
+
+      if (!Array.isArray(customAttrs)) continue;
+
+      for (const attr of customAttrs) {
+        if (!attr || !attr.key) continue;
+
         if (attr.key === "Uploaded_Image") {
           details.type = "Image";
           details.image = attr.value;
         }
 
-        if (attr.key === "Personalization_Details") {
+        if (attr.key === "Personalization_Details" && attr.value) {
           const parts = attr.value.split("|").map((p) => p.trim());
 
           parts.forEach((p) => {
@@ -113,8 +144,10 @@ export default function Orders() {
     return details;
   };
 
-  const ordersRowMarkup = orders.map((order, index) => {
-    const details = parseDetails(order.lineItems.edges);
+  const safeOrders = orders || [];
+  const ordersRowMarkup = safeOrders.map((order, index) => {
+    const lineItemsEdges = order?.lineItems?.edges || [];
+    const details = parseDetails(lineItemsEdges);
 
     return (
       <IndexTable.Row id={order.id} key={order.id} position={index}>
@@ -124,13 +157,11 @@ export default function Orders() {
           </Text>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          {new Date(order.createdAt).toLocaleDateString()}
+          {order.createdAt
+            ? new Date(order.createdAt).toLocaleDateString()
+            : "-"}
         </IndexTable.Cell>
-        <IndexTable.Cell>
-          {order.customer
-            ? `${order.customer.firstName} ${order.customer.lastName}`
-            : "Guest"}
-        </IndexTable.Cell>
+        <IndexTable.Cell>{getCustomerName(order.customer)}</IndexTable.Cell>
         <IndexTable.Cell>
           <Badge tone={details.type === "Text" ? "info" : "success"}>
             {details.type}
@@ -158,11 +189,18 @@ export default function Orders() {
     <Page>
       <TitleBar title="Personalized Orders" />
       <Layout>
+        {error && (
+          <Layout.Section>
+            <Banner tone="critical" title="Unable to fetch recent orders">
+              <p>{error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
         <Layout.Section>
           <Card padding="0">
-            {orders.length === 0 ? (
+            {safeOrders.length === 0 ? (
               <EmptyState
-                heading="No personalized orders found in the last 50 orders"
+                heading="No personalized orders found in recent orders"
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
                 <p>
@@ -173,7 +211,7 @@ export default function Orders() {
             ) : (
               <IndexTable
                 resourceName={{ singular: "order", plural: "orders" }}
-                itemCount={orders.length}
+                itemCount={safeOrders.length}
                 headings={[
                   { title: "Order" },
                   { title: "Date" },
@@ -199,31 +237,5 @@ export default function Orders() {
 export const headers = boundary.headers;
 
 export function ErrorBoundary() {
-  const error = useRouteError();
-  let message = "Unknown Error";
-
-  if (isRouteErrorResponse(error)) {
-    message = `${error.status} ${error.statusText} - ${error.data}`;
-  } else if (error instanceof Error) {
-    message = error.message;
-  }
-
-  return (
-    <Page>
-      <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">
-                An error occurred
-              </Text>
-              <Text as="p" variant="bodyMd">
-                {message}
-              </Text>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-      </Layout>
-    </Page>
-  );
+  return boundary.error(useRouteError());
 }

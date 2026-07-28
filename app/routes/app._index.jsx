@@ -1,9 +1,4 @@
-import {
-  useLoaderData,
-  useNavigate,
-  useRouteError,
-  isRouteErrorResponse,
-} from "react-router";
+import { useLoaderData, useNavigate, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import {
   Page,
@@ -34,7 +29,7 @@ export const loader = async ({ request }) => {
               id
               name
               createdAt
-              customer { firstName lastName }
+              customer { firstName lastName email }
               lineItems(first: 10) {
                 edges {
                   node {
@@ -54,13 +49,20 @@ export const loader = async ({ request }) => {
   const allOrders = jsonResponse.data?.orders?.edges || [];
   const personalizedOrders = allOrders
     .filter((o) => {
-      return o.node.lineItems.edges.some((li) =>
-        li.node.customAttributes.some(
-          (attr) =>
-            attr.key === "Personalization_Details" ||
-            attr.key === "Uploaded_Image",
-        ),
-      );
+      const lineItemsEdges = o?.node?.lineItems?.edges || [];
+
+      return lineItemsEdges.some((li) => {
+        const customAttrs = li?.node?.customAttributes || [];
+
+        return (
+          Array.isArray(customAttrs) &&
+          customAttrs.some(
+            (attr) =>
+              attr?.key === "Personalization_Details" ||
+              attr?.key === "Uploaded_Image",
+          )
+        );
+      });
     })
     .map((o) => o.node)
     .slice(0, 5);
@@ -71,7 +73,19 @@ export const loader = async ({ request }) => {
 export default function Index() {
   const { configs, recentOrders } = useLoaderData();
   const navigate = useNavigate();
-  const ordersRowMarkup = recentOrders.map(
+
+  const getCustomerName = (customer) => {
+    if (!customer) return "Guest";
+    const name = [customer.firstName, customer.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return name || customer.email || "Guest";
+  };
+
+  const safeRecentOrders = recentOrders || [];
+  const ordersRowMarkup = safeRecentOrders.map(
     ({ id, name, createdAt, customer }, index) => (
       <IndexTable.Row id={id} key={id} position={index}>
         <IndexTable.Cell>
@@ -80,11 +94,9 @@ export default function Index() {
           </Text>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          {new Date(createdAt).toLocaleDateString()}
+          {createdAt ? new Date(createdAt).toLocaleDateString() : "-"}
         </IndexTable.Cell>
-        <IndexTable.Cell>
-          {customer ? `${customer.firstName} ${customer.lastName}` : "Guest"}
-        </IndexTable.Cell>
+        <IndexTable.Cell>{getCustomerName(customer)}</IndexTable.Cell>
         <IndexTable.Cell>
           <Button size="micro" onClick={() => navigate("/app/orders")}>
             View Details
@@ -180,31 +192,5 @@ export default function Index() {
 export const headers = boundary.headers;
 
 export function ErrorBoundary() {
-  const error = useRouteError();
-  let message = "Unknown Error";
-
-  if (isRouteErrorResponse(error)) {
-    message = `${error.status} ${error.statusText} - ${error.data}`;
-  } else if (error instanceof Error) {
-    message = error.message;
-  }
-
-  return (
-    <Page>
-      <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">
-                An error occurred
-              </Text>
-              <Text as="p" variant="bodyMd">
-                {message}
-              </Text>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-      </Layout>
-    </Page>
-  );
+  return boundary.error(useRouteError());
 }
