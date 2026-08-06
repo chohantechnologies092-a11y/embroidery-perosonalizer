@@ -806,11 +806,24 @@
     ];
 
     const isThumbnail = (img) => {
+      if (!img) return true;
       if (img.closest('.em-native-overlay') || img.closest('#em-confirm-modal') || img.closest('.em-loader-overlay')) return true;
-      if (img.closest('[class*="thumb"]') || img.closest('[id*="thumb"]') || 
-          img.closest('.thumbnail-list') || img.closest('.product__thumbnails') || 
-          img.closest('.media-thumbnail') || img.closest('.slider-counter')) return true;
-      if (img.clientWidth > 0 && img.clientWidth < 100) return true;
+      
+      // If image is rendered under 130px width or height, it is a thumbnail
+      if (img.clientWidth > 0 && img.clientHeight > 0) {
+        if (img.clientWidth < 130 || img.clientHeight < 130) return true;
+      }
+      
+      // Target specific thumbnail list item selectors (avoiding generic parent gallery containers)
+      if (img.closest('.thumbnail-list__item') || 
+          img.closest('.product__media-item--thumb') || 
+          img.closest('.product-single__thumbnails-item') || 
+          img.closest('.product-gallery__thumbnail') ||
+          img.closest('.thumbnails-nav') ||
+          img.closest('.slider-counter')) {
+        return true;
+      }
+      
       return false;
     };
 
