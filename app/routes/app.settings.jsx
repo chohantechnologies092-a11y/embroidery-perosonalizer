@@ -44,6 +44,9 @@ export const action = async ({ request }) => {
   const intent = formData.get("intent");
 
   if (intent === "setup_addon") {
+    const existingSettings = await prisma.globalSettings.findUnique({
+      where: { shop: session.shop },
+    });
     const price2 = parseFloat(formData.get("price2Lines")) || 5;
     const price3 = parseFloat(formData.get("price3Lines")) || 6;
     let frameSizes = [];
@@ -102,6 +105,9 @@ export const action = async ({ request }) => {
         variables: {
           synchronous: true,
           input: {
+            ...(existingSettings?.addonProductId
+              ? { id: existingSettings.addonProductId }
+              : {}),
             title: "Embroidery Add-on (Hidden)",
             status: "ACTIVE",
             productOptions: [
