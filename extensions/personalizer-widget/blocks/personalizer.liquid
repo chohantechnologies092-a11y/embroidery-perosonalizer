@@ -920,22 +920,30 @@
         const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100)) - (exactOverlayWidth - rawWidth) / 2;
         const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100)) - (exactOverlayHeight - rawHeight) / 2;
 
-        if (!isDragging) {
-          overlay.style.left = exactOverlayLeft + 'px';
-          overlay.style.top = exactOverlayTop + 'px';
-        }
-        overlay.style.width = exactOverlayWidth + 'px';
-        overlay.style.height = exactOverlayHeight + 'px';
-
-        overlay.style.transform = `rotate(${angle}deg)`;
-        overlay.style.transformOrigin = 'center center';
-
+        const newLeft = exactOverlayLeft + 'px';
+        const newTop = exactOverlayTop + 'px';
+        const newWidth = exactOverlayWidth + 'px';
+        const newHeight = exactOverlayHeight + 'px';
+        const newTransform = `rotate(${angle}deg)`;
         const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-        const calcSize = exactOverlayHeight * 0.45 * sizeMultiplier;
-        overlay.style.fontSize = calcSize + 'px';
+        const newFontSize = (exactOverlayHeight * 0.45 * sizeMultiplier) + 'px';
+        const newOpacity = computedStyle.opacity;
 
-        overlay.style.opacity = computedStyle.opacity;
-        overlay.style.display = 'flex';
+        if (!isDragging) {
+          if (overlay.style.left !== newLeft) overlay.style.left = newLeft;
+          if (overlay.style.top !== newTop) overlay.style.top = newTop;
+        }
+        if (overlay.style.width !== newWidth) overlay.style.width = newWidth;
+        if (overlay.style.height !== newHeight) overlay.style.height = newHeight;
+
+        if (overlay.style.transform !== newTransform) {
+          overlay.style.transform = newTransform;
+          overlay.style.transformOrigin = 'center center';
+        }
+
+        if (overlay.style.fontSize !== newFontSize) overlay.style.fontSize = newFontSize;
+        if (overlay.style.opacity !== newOpacity) overlay.style.opacity = newOpacity;
+        if (overlay.style.display !== 'flex') overlay.style.display = 'flex';
 
         if (placement === 'Custom') {
           overlay.style.pointerEvents = 'auto';
@@ -1096,9 +1104,33 @@
     });
 
     // Observer for dynamic gallery changes, sliders, zoom modals & lazy-loaded secondary images
-    const observer = new MutationObserver(() => {
+    let isObserverWorking = false;
+    const observer = new MutationObserver((mutations) => {
+      if (isObserverWorking) return;
+
+      let hasExternalMutation = false;
+      for (let i = 0; i < mutations.length; i++) {
+        const target = mutations[i].target;
+        if (target && target.closest && (
+          target.closest('.em-native-overlay') || 
+          target.closest('#em-app-root') || 
+          target.closest('#em-confirm-modal') ||
+          target.closest('.em-loader-overlay')
+        )) {
+          continue;
+        }
+        hasExternalMutation = true;
+        break;
+      }
+
+      if (!hasExternalMutation) return;
+
+      isObserverWorking = true;
       scanAndAttachOverlays();
       updatePreview();
+      setTimeout(() => {
+        isObserverWorking = false;
+      }, 150);
     });
 
     observer.observe(document.body, { 
