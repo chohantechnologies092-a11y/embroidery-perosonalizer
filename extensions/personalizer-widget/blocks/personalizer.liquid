@@ -415,6 +415,52 @@
     letter-spacing: 1px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   ">🛒 Add to Cart with Embroidery</button>
+
+  <!-- Modal for Confirmation -->
+  <div id="em-confirm-modal" style="
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 999999;
+    align-items: center; justify-content: center;
+    font-family: 'Inter', sans-serif;
+  ">
+    <div style="
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 90%;
+      width: 400px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    ">
+      <h3 style="margin-top: 0; color: #333;">Confirm Your Design</h3>
+      <p style="font-size: 14px; color: #666; margin-bottom: 15px;">Please review your placement and design before adding to cart.</p>
+      <div id="em-confirm-preview-container" style="
+        width: 100%;
+        height: 300px;
+        background: #f8f8f8;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 1px solid #eee;
+      ">
+        <img id="em-confirm-img" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button id="em-confirm-cancel" style="
+          flex: 1; padding: 12px; border: 1px solid #ccc; background: #fff; border-radius: 8px; cursor: pointer; font-weight: 600;
+        ">Cancel</button>
+        <button id="em-confirm-proceed" style="
+          flex: 1; padding: 12px; border: none; background: #000; color: #fff; border-radius: 8px; cursor: pointer; font-weight: 600;
+        ">Confirm & Add</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -439,6 +485,7 @@
   ];
   let activeFonts = ["Disneycute", "Relitha"];
   let frameConfig = [];
+  let targetImages = [];
 
   // 1. Read Settings Securely from Shop Metafields!
   {% assign app_settings = shop.metafields.embroidery_app.settings.value %}
@@ -590,19 +637,17 @@
   }
 
   // Fallback / Primary fetch for Variants directly from Shopify Storefront JS
-  // This ensures variants load if the Liquid drop failed (e.g. not fully published but accessible)
-  if (addonVariants.length === 0) {
-    try {
-      const prodRes = await fetch(`/products/embroidery-add-on-hidden.js`);
-      if (prodRes.ok) {
-        const addOnData = await prodRes.json();
-        if (addOnData && addOnData.variants) {
-          addonVariants = addOnData.variants;
-        }
+  // Always try to fetch live variants to avoid 'Cannot find variant' errors from stale metafields
+  try {
+    const prodRes = await fetch(`/products/embroidery-add-on-hidden.js`);
+    if (prodRes.ok) {
+      const addOnData = await prodRes.json();
+      if (addOnData && addOnData.variants && addOnData.variants.length > 0) {
+        addonVariants = addOnData.variants;
       }
-    } catch(err) {
-      console.log("Could not fetch addon product", err);
     }
+  } catch(err) {
+    console.log("Could not fetch live addon product", err);
   }
 
   // Final fallback to prevent empty widget if nothing works
@@ -748,388 +793,326 @@
       };
   };
 
-  function setupPreviewOverlay(productConfig) {
+   function setupPreviewOverlay(productConfig) {
     if (!productConfig) {
       console.log("Embroidery Personalizer: No zone config found in Metafields for this product.");
       return false;
     }
-    
-    if (previewOverlay) return true; // Already setup
 
-    // Extract all product media filenames to find the exact product image on the page
     const productFilenames = [
       {% for media in product.media %}
         {{ media.src | split: '/' | last | split: '.' | first | json }}{% unless forloop.last %},{% endunless %}
       {% endfor %}
     ];
 
-    let targetImages = [];
-    const allImages = document.querySelectorAll('img');
-    for (let img of allImages) {
-      if (img.offsetWidth === 0 || img.offsetHeight === 0) continue;
-      if (img.clientWidth < 150) continue;
+    const isThumbnail = (img) => {
+      if (img.closest('.em-native-overlay') || img.closest('#em-confirm-modal') || img.closest('.em-loader-overlay')) return true;
+      if (img.closest('[class*="thumb"]') || img.closest('[id*="thumb"]') || 
+          img.closest('.thumbnail-list') || img.closest('.product__thumbnails') || 
+          img.closest('.media-thumbnail') || img.closest('.slider-counter')) return true;
+      if (img.clientWidth > 0 && img.clientWidth < 100) return true;
+      return false;
+    };
 
-      const src = img.src || img.currentSrc || img.getAttribute('srcset') || img.getAttribute('data-src') || "";
-      if (!src) continue;
+    const attachOverlayToImage = (targetImage) => {
+      if (!targetImage || targetImage.dataset.emOverlayAttached === 'true') return;
+      if (targetImage.closest('.em-native-overlay')) return;
+      if (targetImage.nextElementSibling && targetImage.nextElementSibling.classList.contains('em-native-overlay')) return;
 
-      const isProductImage = productFilenames.some(filename => src.includes(filename));
-      if (isProductImage) {
-        targetImages.push(img);
+      targetImage.dataset.emOverlayAttached = 'true';
+
+      let overlay = document.createElement('div');
+      overlay.className = 'em-native-overlay';
+      const overlayIdx = targetImages.indexOf(targetImage) >= 0 ? targetImages.indexOf(targetImage) : targetImages.length;
+      overlay.id = 'em-overlay-' + overlayIdx;
+      if (!targetImages.includes(targetImage)) {
+        targetImages.push(targetImage);
       }
-    }
 
-    if (targetImages.length === 0) {
-       let largestArea = 0;
-       let bestImg = null;
-       for (let img of allImages) {
-         if (img.offsetWidth === 0 || img.offsetHeight === 0) continue;
-         if (img.closest('[class*="thumb"]') || img.closest('[id*="Thumb"]')) continue;
-         
-         const area = img.clientWidth * img.clientHeight;
-         if (area > largestArea && area > 40000) { 
-           largestArea = area;
-           bestImg = img;
-         }
-       }
-       if (bestImg) targetImages.push(bestImg);
-    }
-    
-    if(targetImages.length > 0) {
-      console.log("Embroidery Personalizer: Found " + targetImages.length + " matching images.");
-      
-      targetImages.forEach((targetImage, idx) => {
-        let overlay = document.createElement('div');
-        overlay.className = 'em-native-overlay';
-        overlay.id = 'em-overlay-' + idx;
-        
-        let isOverlayActive = true;
-        
-        const updatePosition = () => {
-          if (!document.body.contains(targetImage)) {
-             isOverlayActive = false;
-             overlay.remove();
-             return;
+      let isOverlayActive = true;
+      let isDragging = false;
+      let startX, startY, initialLeft, initialTop;
+      overlay.style.boxSizing = 'border-box';
+      overlay.style.zIndex = '99';
+
+      const updatePosition = () => {
+        if (!document.body.contains(targetImage)) {
+          isOverlayActive = false;
+          overlay.remove();
+          return;
+        }
+
+        const computedStyle = window.getComputedStyle(targetImage);
+        const isVisible = targetImage.offsetWidth > 0 && 
+                          targetImage.offsetHeight > 0 && 
+                          computedStyle.display !== 'none' && 
+                          computedStyle.visibility !== 'hidden' && 
+                          computedStyle.opacity !== '0';
+
+        if (!isVisible) {
+          overlay.style.display = 'none';
+          if (isOverlayActive) {
+            requestAnimationFrame(updatePosition);
           }
+          return;
+        }
 
-          const computedStyle = window.getComputedStyle(targetImage);
-          const computedPos = computedStyle.position;
-          
-          let offsetParent = targetImage.offsetParent;
-          
-          if (computedPos === 'fixed') {
-              overlay.style.position = 'fixed';
-              if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        const computedPos = computedStyle.position;
+        let offsetParent = targetImage.offsetParent;
+
+        if (computedPos === 'fixed') {
+          overlay.style.position = 'fixed';
+          if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        } else {
+          overlay.style.position = 'absolute';
+          if (!offsetParent || offsetParent === document.body) {
+            offsetParent = document.body;
+          }
+          if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
+        }
+
+        const dZone = getDynamicZone();
+        let safeX = dZone.x;
+        let safeY = dZone.y;
+        const safeW = dZone.w;
+        const safeH = dZone.h;
+        const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
+
+        const placement = placementSelect.value;
+        if (placement === 'Right Chest') {
+          safeX = 100 - safeX - safeW; 
+        } else if (placement === 'Center' || placement === 'Back') {
+          safeX = 50 - (safeW / 2);
+        } else if (placement === 'Custom' && customCoords) {
+          safeX = customCoords.x;
+          safeY = customCoords.y;
+        }
+
+        const imgRect = targetImage.getBoundingClientRect();
+        let exactLeft, exactTop;
+
+        if (computedPos === 'fixed') {
+          exactLeft = imgRect.left;
+          exactTop = imgRect.top;
+        } else {
+          let docScrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+          let docScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+          if (offsetParent === document.body || offsetParent === document.documentElement) {
+            exactLeft = imgRect.left + docScrollLeft;
+            exactTop = imgRect.top + docScrollTop;
           } else {
-              overlay.style.position = 'absolute';
-              if (!offsetParent || offsetParent === document.body) {
-                  offsetParent = document.body;
-              }
-              if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
+            const parentRect = offsetParent.getBoundingClientRect();
+            const parentComputed = window.getComputedStyle(offsetParent);
+            const borderLeft = parseFloat(parentComputed.borderLeftWidth) || 0;
+            const borderTop = parseFloat(parentComputed.borderTopWidth) || 0;
+            
+            exactLeft = imgRect.left - parentRect.left - borderLeft + offsetParent.scrollLeft;
+            exactTop = imgRect.top - parentRect.top - borderTop + offsetParent.scrollTop;
           }
+        }
 
-          const dZone = getDynamicZone();
-          let safeX = dZone.x;
-          let safeY = dZone.y;
-          const safeW = dZone.w;
-          const safeH = dZone.h;
-          const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
+        const rawWidth = imgRect.width * (safeW / 100);
+        const rawHeight = imgRect.height * (safeH / 100);
+        const exactOverlayWidth = Math.max(rawWidth, rawHeight);
+        const exactOverlayHeight = exactOverlayWidth;
 
-          const placement = placementSelect.value;
-          if (placement === 'Right Chest') {
-             safeX = 100 - safeX - safeW; 
-          } else if (placement === 'Center' || placement === 'Back') {
-             safeX = 50 - (safeW / 2);
-          } else if (placement === 'Custom' && customCoords) {
-             safeX = customCoords.x;
-             safeY = customCoords.y;
-          }
+        const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100)) - (exactOverlayWidth - rawWidth) / 2;
+        const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100)) - (exactOverlayHeight - rawHeight) / 2;
 
-          const imgRect = targetImage.getBoundingClientRect();
-          let exactLeft, exactTop;
-
-          if (computedPos === 'fixed') {
-             exactLeft = imgRect.left;
-             exactTop = imgRect.top;
-          } else {
-             let docScrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-             let docScrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-             if (offsetParent === document.body || offsetParent === document.documentElement) {
-                 exactLeft = imgRect.left + docScrollLeft;
-                 exactTop = imgRect.top + docScrollTop;
-             } else {
-                 const parentRect = offsetParent.getBoundingClientRect();
-                 const parentComputed = window.getComputedStyle(offsetParent);
-                 const borderLeft = parseFloat(parentComputed.borderLeftWidth) || 0;
-                 const borderTop = parseFloat(parentComputed.borderTopWidth) || 0;
-                 
-                 exactLeft = imgRect.left - parentRect.left - borderLeft + offsetParent.scrollLeft;
-                 exactTop = imgRect.top - parentRect.top - borderTop + offsetParent.scrollTop;
-             }
-          }
-
-          const rawWidth = imgRect.width * (safeW / 100);
-          const rawHeight = imgRect.height * (safeH / 100);
-          const exactOverlayWidth = Math.max(rawWidth, rawHeight);
-          const exactOverlayHeight = exactOverlayWidth;
-
-          const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100)) - (exactOverlayWidth - rawWidth) / 2;
-          const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100)) - (exactOverlayHeight - rawHeight) / 2;
-
+        if (!isDragging) {
           overlay.style.left = exactOverlayLeft + 'px';
           overlay.style.top = exactOverlayTop + 'px';
-          overlay.style.width = exactOverlayWidth + 'px';
-          overlay.style.height = exactOverlayHeight + 'px';
-          
-          overlay.style.transform = `rotate(${angle}deg)`;
-          overlay.style.transformOrigin = 'center center';
-          
-          const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-          const calcSize = exactOverlayHeight * 0.45 * sizeMultiplier;
-          overlay.style.fontSize = calcSize + 'px';
-          
-          overlay.style.opacity = computedStyle.opacity;
-          overlay.style.display = computedStyle.display === 'none' ? 'none' : 'flex';
-
-          if (placement === 'Custom') {
-             overlay.style.pointerEvents = 'auto';
-             overlay.style.cursor = 'move';
-          } else {
-             overlay.style.pointerEvents = 'none';
-             overlay.style.cursor = 'default';
-          }
-          
-          if (isOverlayActive && !isDragging) {
-             requestAnimationFrame(updatePosition);
-          }
-        };
-
-        window.emOverlayUpdateFunctions.push(updatePosition);
-        requestAnimationFrame(updatePosition);
-        const resizeObserver = new ResizeObserver(() => updatePosition());
-        resizeObserver.observe(targetImage);
-
-        overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
-        overlay.style.border = '2px dotted rgba(44, 110, 203, 0.8)';
-        overlay.style.borderRadius = '50%';
-        overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
-        overlay.style.boxSizing = 'border-box';
-        
-        let isDragging = false;
-        let startX, startY, initialLeft, initialTop;
-
-        const onPointerDown = (e) => {
-          if (placementSelect.value !== 'Custom') return;
-          isDragging = true;
-          startX = e.clientX || (e.touches && e.touches[0].clientX);
-          startY = e.clientY || (e.touches && e.touches[0].clientY);
-          initialLeft = overlay.offsetLeft;
-          initialTop = overlay.offsetTop;
-          e.preventDefault();
-        };
-
-        const onPointerMove = (e) => {
-          if (!isDragging) return;
-          const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-          const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-          const dx = clientX - startX;
-          const dy = clientY - startY;
-          overlay.style.left = (initialLeft + dx) + 'px';
-          overlay.style.top = (initialTop + dy) + 'px';
-        };
-
-        const onPointerUp = (e) => {
-          if (!isDragging) return;
-          isDragging = false;
-          
-          const imgRect = targetImage.getBoundingClientRect();
-          const overlayRect = overlay.getBoundingClientRect();
-          const pixelX = overlayRect.left - imgRect.left;
-          const pixelY = overlayRect.top - imgRect.top;
-          
-          const dZone = getDynamicZone();
-          const rawW = imgRect.width * (dZone.w / 100);
-          const rawH = imgRect.height * (dZone.h / 100);
-          const diameter = Math.max(rawW, rawH);
-          
-          const safeXPixels = pixelX + (diameter - rawW) / 2;
-          const safeYPixels = pixelY + (diameter - rawH) / 2;
-
-          customCoords = {
-             x: (safeXPixels / imgRect.width) * 100,
-             y: (safeYPixels / imgRect.height) * 100
-          };
-          window.emOverlayUpdateFunctions.forEach(fn => fn());
-          updatePreview();
-        };
-
-        overlay.addEventListener('mousedown', onPointerDown);
-        document.addEventListener('mousemove', onPointerMove);
-        document.addEventListener('mouseup', onPointerUp);
-        overlay.addEventListener('touchstart', onPointerDown, {passive: false});
-        document.addEventListener('touchmove', onPointerMove, {passive: false});
-        document.addEventListener('touchend', onPointerUp);
-        
-        // Make sure it has a high z-index
-        overlay.style.zIndex = '99';
-      });
-      
-      previewOverlay = true; // Mark as initialized
-    }
-    
-    // Zoom / Lightbox Observer: Watch for new product images being added to the DOM
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach(mutation => {
-        if (mutation.addedNodes) {
-          mutation.addedNodes.forEach(node => {
-            if (node.tagName === 'IMG' || (node.querySelectorAll && node.querySelectorAll('img').length > 0)) {
-              const imgs = node.tagName === 'IMG' ? [node] : node.querySelectorAll('img');
-              imgs.forEach(img => {
-                if (img.clientWidth < 150) return;
-                const src = img.src || img.currentSrc || img.getAttribute('data-src') || "";
-                if (src && productFilenames.some(filename => src.includes(filename))) {
-                  // Wait a brief moment for the image to fully render its size in the lightbox
-                  setTimeout(() => {
-                    if (img.closest('.em-native-overlay')) return; // ignore overlays
-                    if (img.nextElementSibling && img.nextElementSibling.classList.contains('em-native-overlay')) return; // already added
-
-                    let overlay = document.createElement('div');
-                    overlay.className = 'em-native-overlay';
-                    let isOverlayActive = true;
-                    
-                    const updatePosition = () => {
-                      if (!document.body.contains(img)) {
-                         isOverlayActive = false;
-                         overlay.remove();
-                         return;
-                      }
-
-                      const computedStyle = window.getComputedStyle(img);
-                      const computedPos = computedStyle.position;
-                      
-                      let offsetParent = img.offsetParent;
-                      
-                      if (computedPos === 'fixed') {
-                          overlay.style.position = 'fixed';
-                          if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
-                      } else {
-                          overlay.style.position = 'absolute';
-                          if (!offsetParent || offsetParent === document.body) {
-                              offsetParent = document.body;
-                          }
-                          if (overlay.parentNode !== offsetParent) offsetParent.appendChild(overlay);
-                      }
-
-                      const dZone = getDynamicZone();
-                      let safeX = dZone.x;
-                      let safeY = dZone.y;
-                      const safeW = dZone.w;
-                      const safeH = dZone.h;
-                      const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
-
-                      const placement = placementSelect.value;
-                      if (placement === 'Right Chest') {
-                         safeX = 100 - safeX - safeW; 
-                      } else if (placement === 'Center' || placement === 'Back') {
-                         safeX = 50 - (safeW / 2);
-                      } else if (placement === 'Custom' && customCoords) {
-                         safeX = customCoords.x;
-                         safeY = customCoords.y;
-                      }
-
-                      const imgRect = img.getBoundingClientRect();
-                      let exactLeft, exactTop;
-
-                      if (computedPos === 'fixed') {
-                         exactLeft = imgRect.left;
-                         exactTop = imgRect.top;
-                      } else {
-                         let docScrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-                         let docScrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-                         if (offsetParent === document.body || offsetParent === document.documentElement) {
-                             exactLeft = imgRect.left + docScrollLeft;
-                             exactTop = imgRect.top + docScrollTop;
-                         } else {
-                             const parentRect = offsetParent.getBoundingClientRect();
-                             const parentComputed = window.getComputedStyle(offsetParent);
-                             const borderLeft = parseFloat(parentComputed.borderLeftWidth) || 0;
-                             const borderTop = parseFloat(parentComputed.borderTopWidth) || 0;
-                             
-                             exactLeft = imgRect.left - parentRect.left - borderLeft + offsetParent.scrollLeft;
-                             exactTop = imgRect.top - parentRect.top - borderTop + offsetParent.scrollTop;
-                         }
-                      }
-
-                      const rawWidth = imgRect.width * (safeW / 100);
-                      const rawHeight = imgRect.height * (safeH / 100);
-                      const exactOverlayWidth = Math.max(rawWidth, rawHeight);
-                      const exactOverlayHeight = exactOverlayWidth;
-
-                      const exactOverlayLeft = exactLeft + (imgRect.width * (safeX / 100)) - (exactOverlayWidth - rawWidth) / 2;
-                      const exactOverlayTop = exactTop + (imgRect.height * (safeY / 100)) - (exactOverlayHeight - rawHeight) / 2;
-
-                      overlay.style.left = exactOverlayLeft + 'px';
-                      overlay.style.top = exactOverlayTop + 'px';
-                      overlay.style.width = exactOverlayWidth + 'px';
-                      overlay.style.height = exactOverlayHeight + 'px';
-                      
-                      overlay.style.transform = `rotate(${angle}deg)`;
-                      overlay.style.transformOrigin = 'center center';
-                      
-                      const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
-                      const calcSize = exactOverlayHeight * 0.45 * sizeMultiplier;
-                      overlay.style.fontSize = calcSize + 'px';
-                      
-                      overlay.style.opacity = computedStyle.opacity;
-                      overlay.style.display = computedStyle.display === 'none' ? 'none' : 'flex';
-                      
-                      if (placement === 'Custom') {
-                         overlay.style.pointerEvents = 'auto';
-                         overlay.style.cursor = 'move';
-                      } else {
-                         overlay.style.pointerEvents = 'none';
-                         overlay.style.cursor = 'default';
-                      }
-                      
-                      if (isOverlayActive) {
-                         requestAnimationFrame(updatePosition);
-                      }
-                    };
-                    
-                    overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
-                    overlay.style.border = '2px dotted rgba(44, 110, 203, 0.8)';
-                    overlay.style.borderRadius = '50%';
-                    overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
-                    overlay.style.boxSizing = 'border-box';
-                    overlay.style.zIndex = '9999';
-
-                    window.emOverlayUpdateFunctions.push(updatePosition);
-                    requestAnimationFrame(updatePosition);
-                    
-                    // Force a re-render of the text inside the new overlay
-                    updatePreview();
-                  }, 100);
-                }
-              });
-            }
-          });
         }
-      });
+        overlay.style.width = exactOverlayWidth + 'px';
+        overlay.style.height = exactOverlayHeight + 'px';
+
+        overlay.style.transform = `rotate(${angle}deg)`;
+        overlay.style.transformOrigin = 'center center';
+
+        const sizeMultiplier = parseFloat(sizeSliders[0].value || 50) / 50;
+        const calcSize = exactOverlayHeight * 0.45 * sizeMultiplier;
+        overlay.style.fontSize = calcSize + 'px';
+
+        overlay.style.opacity = computedStyle.opacity;
+        overlay.style.display = 'flex';
+
+        if (placement === 'Custom') {
+          overlay.style.pointerEvents = 'auto';
+          overlay.style.cursor = 'move';
+        } else {
+          overlay.style.pointerEvents = 'none';
+          overlay.style.cursor = 'default';
+        }
+
+        if (isOverlayActive) {
+          requestAnimationFrame(updatePosition);
+        }
+      };
+
+      window.emOverlayUpdateFunctions.push(updatePosition);
+      requestAnimationFrame(updatePosition);
+
+      const resizeObserver = new ResizeObserver(() => updatePosition());
+      resizeObserver.observe(targetImage);
+
+      overlay.innerHTML = '<span class="em-p-text-instance" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; pointer-events: none;"></span>';
+      overlay.style.border = '2px dotted rgba(44, 110, 203, 0.8)';
+      overlay.style.borderRadius = '50%';
+      overlay.style.backgroundColor = 'rgba(44, 110, 203, 0.1)';
+      overlay.style.boxSizing = 'border-box';
+
+      const onPointerDown = (e) => {
+        if (placementSelect.value !== 'Custom') return;
+        isDragging = true;
+        startX = e.clientX || (e.touches && e.touches[0].clientX);
+        startY = e.clientY || (e.touches && e.touches[0].clientY);
+        initialLeft = parseFloat(overlay.style.left) || 0;
+        initialTop = parseFloat(overlay.style.top) || 0;
+        e.preventDefault();
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        overlay.style.left = (initialLeft + dx) + 'px';
+        overlay.style.top = (initialTop + dy) + 'px';
+      };
+
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const imgRect = targetImage.getBoundingClientRect();
+        const dZone = getDynamicZone();
+        const rawW = imgRect.width * (dZone.w / 100);
+        const rawH = imgRect.height * (dZone.h / 100);
+        const exactOverlayWidth = Math.max(rawW, rawH);
+        const exactOverlayHeight = exactOverlayWidth;
+
+        const finalLeft = parseFloat(overlay.style.left) || 0;
+        const finalTop = parseFloat(overlay.style.top) || 0;
+
+        let computedPos = window.getComputedStyle(targetImage).position;
+        let exactLeft, exactTop;
+
+        if (computedPos === 'fixed') {
+          exactLeft = imgRect.left;
+          exactTop = imgRect.top;
+        } else {
+          let offsetParent = targetImage.offsetParent;
+          let docScrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+          let docScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+          if (!offsetParent || offsetParent === document.body || offsetParent === document.documentElement) {
+            exactLeft = imgRect.left + docScrollLeft;
+            exactTop = imgRect.top + docScrollTop;
+          } else {
+            const parentRect = offsetParent.getBoundingClientRect();
+            const parentComputed = window.getComputedStyle(offsetParent);
+            const borderLeft = parseFloat(parentComputed.borderLeftWidth) || 0;
+            const borderTop = parseFloat(parentComputed.borderTopWidth) || 0;
+
+            exactLeft = imgRect.left - parentRect.left - borderLeft + offsetParent.scrollLeft;
+            exactTop = imgRect.top - parentRect.top - borderTop + offsetParent.scrollTop;
+          }
+        }
+
+        const rawX = ((finalLeft + (exactOverlayWidth - rawW) / 2 - exactLeft) / imgRect.width) * 100;
+        const rawY = ((finalTop + (exactOverlayHeight - rawH) / 2 - exactTop) / imgRect.height) * 100;
+
+        customCoords = {
+          x: Math.max(0, Math.min(100 - dZone.w, rawX)),
+          y: Math.max(0, Math.min(100 - dZone.h, rawY))
+        };
+      };
+
+      overlay.addEventListener('mousedown', onPointerDown);
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+
+      overlay.addEventListener('touchstart', onPointerDown, { passive: false });
+      overlay.addEventListener('touchmove', onPointerMove, { passive: false });
+      overlay.addEventListener('touchend', onPointerUp);
+    };
+
+    const scanAndAttachOverlays = () => {
+      const allImages = document.querySelectorAll('img');
+      const foundMatch = [];
+
+      for (let img of allImages) {
+        if (isThumbnail(img)) continue;
+
+        const src = img.src || img.currentSrc || img.getAttribute('srcset') || img.getAttribute('data-src') || "";
+        if (!src) continue;
+
+        const isProductImage = productFilenames.some(filename => src.includes(filename));
+        if (isProductImage) {
+          foundMatch.push(img);
+          attachOverlayToImage(img);
+        }
+      }
+
+      if (foundMatch.length === 0) {
+        let largestArea = 0;
+        let bestImg = null;
+        for (let img of allImages) {
+          if (isThumbnail(img)) continue;
+          const area = (img.clientWidth || 1) * (img.clientHeight || 1);
+          if (area > largestArea) {
+            largestArea = area;
+            bestImg = img;
+          }
+        }
+        if (bestImg) {
+          attachOverlayToImage(bestImg);
+        }
+      }
+    };
+
+    scanAndAttachOverlays();
+    previewOverlay = true;
+
+    // Rescan on clicks (e.g. thumbnail clicks, gallery tabs, slide buttons)
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('[class*="thumb"]') || 
+          e.target.closest('[class*="media"]') || 
+          e.target.closest('[class*="slide"]') || 
+          e.target.closest('[class*="gallery"]') ||
+          e.target.closest('button') ||
+          e.target.closest('a')) {
+        setTimeout(() => {
+          scanAndAttachOverlays();
+          updatePreview();
+        }, 50);
+        setTimeout(() => {
+          scanAndAttachOverlays();
+          updatePreview();
+        }, 300);
+      }
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Observer for dynamic gallery changes, sliders, zoom modals & lazy-loaded secondary images
+    const observer = new MutationObserver(() => {
+      scanAndAttachOverlays();
+      updatePreview();
+    });
+
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true, 
+      attributes: true, 
+      attributeFilter: ['src', 'srcset', 'class', 'style', 'data-src'] 
+    });
 
     return true;
-    
-    console.log("Embroidery Personalizer: Could not find main product image on the page.");
-    return false;
   }
-  
-  // Try to setup immediately, but it will also run when they click the "Make Personalization" button
+
   if (productConfig) {
     setupPreviewOverlay(productConfig);
-    // If it fails because images aren't loaded yet, try again on window load
     window.addEventListener('load', () => setupPreviewOverlay(productConfig));
   }
 
@@ -1296,24 +1279,7 @@
           lineProperties['Personalization_Details'] = cartPropsEl.value;
         }
 
-        // Step 3: Add the main product to cart
-        const mainRes = await fetch('/cart/add.js', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: variantId,
-            quantity: qty,
-            properties: lineProperties
-          })
-        });
-
-        if (!mainRes.ok) {
-          const err = await mainRes.json();
-          alert('Error adding product: ' + (err.description || 'Please try again'));
-          return;
-        }
-
-        // Step 4: Build addon items (frames) using stored variantId from dataset
+        // Step 3: Build addon items (frames) using stored variantId from dataset
         let addons = [];
         if (mode === 'text') {
           const selects = [
@@ -1330,10 +1296,8 @@
               
               let resolvedId = null;
               if (directVariantId) {
-                // Best case: use directly stored ID
                 resolvedId = directVariantId;
               } else {
-                // Fallback: try string matching
                 const matchingVariant = addonVariants.find(v =>
                   v.title && v.title.toLowerCase().includes(variantTitle.toLowerCase().trim())
                 );
@@ -1343,49 +1307,219 @@
               }
               
               if (resolvedId) {
-                const existing = addons.find(a => a.id === resolvedId);
+                const numId = parseInt(resolvedId, 10);
+                if (isNaN(numId)) {
+                  alert("Embroidery Add-on product is missing or unpublished. Please publish 'Embroidery Add-on (Hidden)' to the Online Store channel.");
+                  throw new Error("Invalid Add-on Variant ID");
+                }
+                const existing = addons.find(a => a.id === numId);
                 if (existing) {
                   existing.quantity += qty;
                 } else {
                   addons.push({
-                    id: parseInt(resolvedId),
+                    id: numId,
                     quantity: qty,
                     properties: { 'For_Product': 'Embroidery - ' + sel.line + ' (' + variantTitle + ')' }
                   });
                 }
-              } else {
-                console.warn('[EM] Could not find variant for frame:', variantTitle);
-                console.log('[EM] addonVariants:', JSON.stringify(addonVariants.map(v => ({id: v.id, title: v.title}))));
               }
             }
           }
         } else if (mode === 'image' && imageVariantId) {
+          const numId = parseInt(imageVariantId, 10);
+          if (isNaN(numId)) {
+            alert("Embroidery Add-on product is missing or unpublished. Please publish 'Embroidery Add-on (Hidden)' to the Online Store channel.");
+            throw new Error("Invalid Add-on Variant ID");
+          }
           addons.push({
-            id: imageVariantId,
+            id: numId,
             quantity: qty,
             properties: { 'For_Product': 'Image Embroidery' }
           });
         }
 
-        // Step 5: Add addon frames to cart
-        if (addons.length > 0) {
-          const addonRes = await fetch('/cart/add.js', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: addons })
-          });
-          if (!addonRes.ok) {
-            console.error('[EM] Failed to add addon frames');
-          }
-        }
+        // Step 4: Show Modal and Final Submit
+        const executeFinalCartSubmit = async () => {
+           try {
+             // We can combine main product and addons into a single array for Shopify Cart API
+             const items = [];
+             items.push({
+               id: variantId,
+               quantity: qty,
+               properties: lineProperties
+             });
+             if (addons && addons.length > 0) {
+               items.push(...addons);
+             }
+             
+             const res = await fetch('/cart/add.js', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ items: items })
+             });
+             
+             if (!res.ok) {
+               const err = await res.json();
+               alert('Error adding product: ' + (err.description || 'Please try again'));
+               if (loaderOverlay) loaderOverlay.style.display = 'none';
+               emAddToCartBtn.disabled = false;
+               emAddToCartBtn.textContent = '🛒 Add to Cart with Embroidery';
+               return;
+             }
+             window.location.href = '/cart';
+           } catch(e) {
+             console.error('[EM] Error:', e);
+             alert('Something went wrong. Please try again.');
+             if (loaderOverlay) loaderOverlay.style.display = 'none';
+             emAddToCartBtn.disabled = false;
+             emAddToCartBtn.textContent = '🛒 Add to Cart with Embroidery';
+           }
+        };
 
-        // Step 6: Redirect to cart
-        window.location.href = '/cart';
+        const showConfirmModal = () => {
+           if (loaderOverlay) loaderOverlay.style.display = 'none';
+           const modal = document.getElementById('em-confirm-modal');
+           const previewContainer = document.getElementById('em-confirm-preview-container');
+           const cancelBtn = document.getElementById('em-confirm-cancel');
+           const proceedBtn = document.getElementById('em-confirm-proceed');
+           
+           if (!modal || !previewContainer) {
+              executeFinalCartSubmit();
+              return;
+           }
+           
+           // Find the LARGEST visible overlay to guarantee we pick the one on the main image, not a thumbnail
+           let overlayNode = null;
+           let maxOvArea = 0;
+           const allOverlays = document.querySelectorAll('.em-native-overlay');
+           for (let ov of allOverlays) {
+               const rect = ov.getBoundingClientRect();
+               const area = rect.width * rect.height;
+               const isVisible = rect.width > 0 && rect.right > 0 && rect.left < (window.innerWidth || document.documentElement.clientWidth) && window.getComputedStyle(ov).display !== 'none';
+               
+               if (isVisible && area > maxOvArea) {
+                   maxOvArea = area;
+                   overlayNode = ov;
+               }
+           }
+           
+           if (!overlayNode) {
+              executeFinalCartSubmit();
+              return;
+           }
+
+           const overlayRect = overlayNode.getBoundingClientRect();
+           const overlayCenterX = overlayRect.left + overlayRect.width / 2;
+           const overlayCenterY = overlayRect.top + overlayRect.height / 2;
+
+           // Directly find the exact image associated with this overlay using its ID index!
+           // The overlay ID is 'em-overlay-X', and targetImages[X] is the exact matching image.
+           let targetImg = null;
+           if (overlayNode.id && overlayNode.id.startsWith('em-overlay-')) {
+               const idx = parseInt(overlayNode.id.replace('em-overlay-', ''));
+               if (!isNaN(idx) && targetImages[idx]) {
+                   targetImg = targetImages[idx];
+               }
+           }
+           
+           if (!targetImg && targetImages.length > 0) targetImg = targetImages[0];
+           
+           if (!targetImg) {
+              executeFinalCartSubmit();
+              return;
+           }
+           
+           // Calculate scaling to fit in container (300px height)
+           const imgRect = targetImg.getBoundingClientRect();
+           const containerHeight = 300;
+           const containerWidth = previewContainer.clientWidth || 360;
+           
+           const scale = Math.min(containerWidth / imgRect.width, containerHeight / imgRect.height) * 0.95;
+           
+           const previewDiv = document.createElement('div');
+           previewDiv.style.position = 'relative';
+           previewDiv.style.width = imgRect.width + 'px';
+           previewDiv.style.height = imgRect.height + 'px';
+           previewDiv.style.transform = `scale(${scale})`;
+           previewDiv.style.transformOrigin = 'center center';
+           previewDiv.style.flexShrink = '0'; 
+           
+           const innerImg = targetImg.cloneNode(true);
+           innerImg.removeAttribute('srcset');
+           innerImg.removeAttribute('sizes');
+           innerImg.src = targetImg.currentSrc || targetImg.src;
+           
+           const computedImgStyle = window.getComputedStyle(targetImg);
+           innerImg.style.position = 'absolute';
+           innerImg.style.left = '0';
+           innerImg.style.top = '0';
+           innerImg.style.width = imgRect.width + 'px';
+           innerImg.style.height = imgRect.height + 'px';
+           innerImg.style.margin = '0';
+           innerImg.style.padding = computedImgStyle.padding;
+           innerImg.style.border = computedImgStyle.border;
+           innerImg.style.boxSizing = computedImgStyle.boxSizing;
+           innerImg.style.objectFit = computedImgStyle.objectFit;
+           innerImg.style.objectPosition = computedImgStyle.objectPosition;
+           innerImg.style.borderRadius = computedImgStyle.borderRadius;
+           
+           const innerOverlay = overlayNode.cloneNode(true);
+           
+           const centerXDist = overlayCenterX - imgRect.left;
+           const centerYDist = overlayCenterY - imgRect.top;
+           const angle = parseInt(angleSlider ? angleSlider.value : 0) || 0;
+
+           innerOverlay.style.position = 'absolute';
+           innerOverlay.style.left = centerXDist + 'px';
+           innerOverlay.style.top = centerYDist + 'px';
+           innerOverlay.style.margin = '0';
+           innerOverlay.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+           innerOverlay.style.pointerEvents = 'none';
+           
+           previewDiv.appendChild(innerImg);
+           previewDiv.appendChild(innerOverlay);
+           
+           const flexCenter = document.createElement('div');
+           flexCenter.style.display = 'flex';
+           flexCenter.style.alignItems = 'center';
+           flexCenter.style.justifyContent = 'center';
+           flexCenter.style.width = '100%';
+           flexCenter.style.height = '100%';
+           flexCenter.appendChild(previewDiv);
+           
+           previewContainer.innerHTML = '';
+           previewContainer.appendChild(flexCenter);
+           
+           modal.style.display = 'flex';
+           
+           // Cleanup old listeners to avoid multiple fires
+           const newCancel = cancelBtn.cloneNode(true);
+           const newProceed = proceedBtn.cloneNode(true);
+           cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+           proceedBtn.parentNode.replaceChild(newProceed, proceedBtn);
+           
+           newCancel.addEventListener('click', () => {
+              modal.style.display = 'none';
+              emAddToCartBtn.disabled = false;
+              emAddToCartBtn.textContent = '🛒 Add to Cart with Embroidery';
+           });
+           
+           newProceed.addEventListener('click', () => {
+              modal.style.display = 'none';
+              if (loaderOverlay) {
+                loaderOverlay.style.display = 'flex';
+                loaderOverlay.innerHTML = '<div class="em-spinner"></div><div class="em-loader-text">Adding to cart...</div>';
+              }
+              executeFinalCartSubmit();
+           });
+        };
+        
+        // Directly trigger the pure DOM modal
+        showConfirmModal();
 
       } catch(e) {
         console.error('[EM] Error:', e);
         alert('Something went wrong. Please try again.');
-      } finally {
         if (loaderOverlay) loaderOverlay.style.display = 'none';
         emAddToCartBtn.disabled = false;
         emAddToCartBtn.textContent = '🛒 Add to Cart with Embroidery';
